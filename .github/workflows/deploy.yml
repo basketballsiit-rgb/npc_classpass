@@ -21,6 +21,11 @@ jobs:
         command_timeout: 15m
         # คำสั่งรันบนเซิร์ฟเวอร์เพื่อทำการอัปเดตระบบ Build และรีสตาร์ต PM2
         script: |
+          # โหลด Node.js และ npm จาก NVM ของเซิร์ฟเวอร์
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          export PATH="/root/.nvm/versions/node/v20.20.2/bin:$PATH"
+          
           TARGET_DIR="/var/www/html/npc_classpass"
           
           # ถ้ายังไม่มีโฟลเดอร์ในเซิร์ฟเวอร์ ให้ทำการ clone โปรเจกต์ลงมา
