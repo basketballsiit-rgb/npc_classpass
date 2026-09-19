@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? (process.env.NODE_ENV === "production" ? "/npc_classpass" : "");
+
 const nextConfig: NextConfig = {
-  /* config options here */
+  basePath: basePath || undefined,
 };
 
 export default nextConfig;
