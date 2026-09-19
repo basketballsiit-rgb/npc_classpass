@@ -1,26 +1,178 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #F8F5FD;
+    --foreground: #2B244D;
+
+    /* Lavender / Lilac Theme (Matching Reference Image) */
+    --primary-purple: #8C78EA;
+    --primary-purple-hover: #7B65E3;
+    --primary-purple-light: #F0EBFC;
+    --primary-purple-subtle: #FAF7FE;
+    
+    --text-heading: #2B244D;
+    --text-muted: #857E9E;
+    
+    /* 3D Pastel Accent Palette */
+    --pastel-pink: #FF8BA0;
+    --pastel-pink-bg: #FFF0F3;
+    --pastel-amber: #FFB86C;
+    --pastel-amber-bg: #FFF7ED;
+    --pastel-blue: #72C7F8;
+    --pastel-blue-bg: #EFF8FF;
+    --pastel-mint: #70D6B4;
+    --pastel-mint-bg: #EEFAF5;
+
+    /* Status Alerts */
+    --status-danger: #FF6B8B;
+    --status-danger-bg: #FFF0F3;
+    --status-danger-border: #FFCCD5;
+    
+    --status-warning: #FFAB5E;
+    --status-warning-bg: #FFF8F0;
+    --status-warning-border: #FFE0C2;
+
+    --status-success: #52C79E;
+    --status-success-bg: #EDFBF5;
+    --status-success-border: #B7EED8;
+
+    --card: #ffffff;
+    --card-foreground: #2B244D;
+    --border: #EAE3F5;
+    --input: #EFEAF6;
+    --ring: #9D8EF5;
   }
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sarabun), var(--font-inter), sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 3D Soft Clay & Pill Shadow Utilities */
+.clay-card {
+  background-color: #ffffff;
+  border-radius: 1.5rem; /* 24px */
+  border: 1px solid rgba(235, 227, 248, 0.9);
+  box-shadow: 0 12px 28px -6px rgba(140, 120, 200, 0.12), 0 4px 10px -2px rgba(140, 120, 200, 0.06);
+  transition: all 0.2s ease-in-out;
+}
+
+.clay-card:hover {
+  box-shadow: 0 16px 32px -6px rgba(140, 120, 200, 0.16), 0 6px 12px -2px rgba(140, 120, 200, 0.08);
+}
+
+/* 3D Squircle Icon Badges */
+.squircle-purple {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem; /* 16px */
+  background: linear-gradient(135deg, #B5A4F8 0%, #8C78EA 100%);
+  color: #ffffff;
+  box-shadow: 0 8px 16px -3px rgba(140, 120, 234, 0.38), inset 0 2px 2px rgba(255, 255, 255, 0.4);
+}
+
+.squircle-pink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #FFA5B6 0%, #FF708C 100%);
+  color: #ffffff;
+  box-shadow: 0 8px 16px -3px rgba(255, 112, 140, 0.38), inset 0 2px 2px rgba(255, 255, 255, 0.4);
+}
+
+.squircle-amber {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #FFD07B 0%, #FFAB47 100%);
+  color: #ffffff;
+  box-shadow: 0 8px 16px -3px rgba(255, 171, 71, 0.38), inset 0 2px 2px rgba(255, 255, 255, 0.4);
+}
+
+.squircle-blue {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #8FE0FC 0%, #5CB9F8 100%);
+  color: #ffffff;
+  box-shadow: 0 8px 16px -3px rgba(92, 185, 248, 0.38), inset 0 2px 2px rgba(255, 255, 255, 0.4);
+}
+
+/* 3D Pill Button Styles */
+.btn-clay-purple {
+  background: linear-gradient(135deg, #9C8AF3 0%, #7D67E3 100%);
+  color: #ffffff;
+  box-shadow: 0 6px 16px -2px rgba(125, 103, 227, 0.38), inset 0 1px 1px rgba(255, 255, 255, 0.35);
+  border-radius: 9999px;
+  font-weight: 700;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-clay-purple:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -2px rgba(125, 103, 227, 0.45);
+}
+
+.btn-clay-purple:active {
+  transform: translateY(1px);
+  box-shadow: 0 3px 8px -2px rgba(125, 103, 227, 0.4);
+}
+
+.btn-clay-pink {
+  background: linear-gradient(135deg, #FFA0B2 0%, #FF6885 100%);
+  color: #ffffff;
+  box-shadow: 0 6px 16px -2px rgba(255, 104, 133, 0.38), inset 0 1px 1px rgba(255, 255, 255, 0.35);
+  border-radius: 9999px;
+  font-weight: 700;
+  transition: all 0.15s ease-in-out;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F3EEFA;
+}
+::-webkit-scrollbar-thumb {
+  background: #D4C9E8;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #B6A5D9;
+}
+
+/* Print Specific Rules */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .printable-content,
+  .printable-content * {
+    visibility: visible;
+  }
+  .printable-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+  @page {
+    size: A4;
+    margin: 1.5cm 1cm 1.5cm 1.5cm;
+  }
 }

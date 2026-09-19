@@ -1,0 +1,184 @@
+// Prisma Schema for NPC ClassPass (ระบบตรวจสอบสิทธิ์สอบและแจ้งเตือน ขร. วิทยาลัยสารพัดช่าง)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  TEACHER      // ครูผู้สอน
+  ADMIN        // เจ้าหน้าที่งานวัดผลและประเมินผล
+  HEAD_DEPT    // หัวหน้าแผนกวิชา
+  DIRECTOR     // ผู้อำนวยการ
+}
+
+enum AttendanceStatus {
+  NORMAL       // เวลาเรียน >= 85% (ปกติ)
+  RISK         // เวลาเรียน 80% - 84.9% (กลุ่มเฝ้าระวัง เสี่ยง ขร.)
+  KHOR_ROR     // เวลาเรียน < 80% (หมดสิทธิ์สอบ ขร.)
+}
+
+enum SubmissionStatus {
+  UNSUBMITTED  // ยังไม่ได้ส่งงานวัดผล
+  SUBMITTED    // ส่งรายชื่อไปยังงานวัดผลแล้ว
+  APPROVED     // งานวัดผล/ผอ. อนุมัติประกาศ ขร. แล้ว
+  REJECTED     // มีการทบทวนหรือยกเลิก
+}
+
+model User {
+  id           String      @id @default(uuid())
+  username     String      @unique
+  passwordHash String
+  prefix       String      @default("อ.")
+  firstName    String
+  lastName     String
+  role         Role        @default(TEACHER)
+  email        String?     @unique
+  phone        String?
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  
+  // Relations
+  courses      Course[]
+  submissions  KhorRorSubmission[]
+  
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([departmentId])
+  @@map("users")
+}
+
+model Department {
+  id        String    @id @default(uuid())
+  code      String    @unique // เช่น "EL", "AT", "BC"
+  name      String    // เช่น "ช่างไฟฟ้ากำลัง", "ช่างยนต์", "คอมพิวเตอร์ธุรกิจ"
+  
+  users     User[]
+  students  Student[]
+  
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("departments")
+}
+
+model Course {
+  id           String             @id @default(uuid())
+  code         String             // เช่น "20105-2001"
+  name         String             // เช่น "การติดตั้งไฟฟ้าในอาคาร"
+  credits      Int                @default(3)
+  totalHours   Int                @default(72)
+  term         Int                @default(2) // ภาคเรียนที่ 1 หรือ 2
+  academicYear Int                @default(2567)
+  room         String?
+  
+  teacherId    String
+  teacher      User               @relation(fields: [teacherId], references: [id])
+  
+  enrollments  CourseEnrollment[]
+  records      AttendanceRecord[]
+  submissions  KhorRorSubmission[]
+
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([teacherId])
+  @@map("courses")
+}
+
+model Student {
+  id           String             @id @default(uuid())
+  studentId    String             @unique // รหัสนักศึกษา 11 หลัก เช่น "66201010001"
+  prefix       String             // "นาย", "นางสาว"
+  firstName    String
+  lastName     String
+  level        String             // "ปวช.1", "ปวช.2", "ปวช.3", "ปวส.1", "ปวส.2"
+  classGroup   String             // "ชฟ.1/1", "ชย.1/2"
+  
+  departmentId String
+  department   Department         @relation(fields: [departmentId], references: [id])
+  
+  enrollments  CourseEnrollment[]
+  records      AttendanceRecord[]
+
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([departmentId])
+  @@map("students")
+}
+
+model CourseEnrollment {
+  id               String           @id @default(uuid())
+  courseId         String
+  course           Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  studentId        String
+  student          Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  totalHours       Int              @default(72)
+  attendedHours    Int              @default(0)
+  absentHours      Int              @default(0)
+  leaveHours       Int              @default(0)
+  lateHours        Int              @default(0)
+  attendanceRate   Float            @default(100.0) // เช่น 78.5 (%)
+  
+  status           AttendanceStatus @default(NORMAL)
+  submissionStatus SubmissionStatus @default(UNSUBMITTED)
+  remark           String?          @db.Text
+
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@unique([courseId, studentId])
+  @@index([courseId])
+  @@index([studentId])
+  @@map("course_enrollments")
+}
+
+model AttendanceRecord {
+  id        String   @id @default(uuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  date      DateTime
+  period    Int      @default(1)
+  status    String   // "PRESENT", "ABSENT", "LEAVE", "LATE"
+  remark    String?
+
+  createdAt DateTime @default(now())
+
+  @@index([courseId, date])
+  @@index([studentId])
+  @@map("attendance_records")
+}
+
+model KhorRorSubmission {
+  id             String           @id @default(uuid())
+  memoNumber     String?          // เลขที่บันทึกข้อความ เช่น "วสช. 20105-2001/พิเศษ"
+  courseId       String
+  course         Course           @relation(fields: [courseId], references: [id])
+  teacherId      String
+  teacher        User             @relation(fields: [teacherId], references: [id])
+  
+  status         SubmissionStatus @default(SUBMITTED)
+  academicYear   Int
+  term           Int
+  submittedAt    DateTime         @default(now())
+  approvedAt     DateTime?
+  approvedBy     String?
+  notes          String?          @db.Text
+
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([courseId])
+  @@index([teacherId])
+  @@map("khor_ror_submissions")
+}
