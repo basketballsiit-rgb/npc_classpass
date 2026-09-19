@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   GraduationCap,
   Mail,
@@ -17,6 +17,7 @@ import {
   Clock,
   Flame,
   Info,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getAssetPath } from "@/lib/utils";
