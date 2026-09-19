@@ -1,9 +1,11 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { Calendar, LogOut, Sparkles } from "lucide-react";
 import { TeacherProfile } from "@/types";
 import { Badge } from "@/components/ui/badge";
+import { getAssetPath } from "@/lib/utils";
 
 interface HeaderProps {
   teacher: TeacherProfile;
@@ -18,7 +20,7 @@ export const Header: React.FC<HeaderProps> = ({ teacher, onOpenTermSetting }) =>
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-2xl bg-white p-0.5 shadow-[0_4px_12px_rgba(0,0,0,0.1)] ring-2 ring-white/50 flex items-center justify-center shrink-0">
             <img
-              src="/logo.png"
+              src={getAssetPath("/logo.png")}
               alt="วิทยาลัยสารพัดช่างน่าน"
               className="h-full w-full rounded-xl object-cover"
             />
@@ -73,13 +75,13 @@ export const Header: React.FC<HeaderProps> = ({ teacher, onOpenTermSetting }) =>
           </div>
 
           {/* Logout Button */}
-          <a
+          <Link
             href="/"
             title="ออกจากระบบ"
             className="p-2 text-purple-100 hover:text-white hover:bg-white/20 rounded-full transition-colors"
           >
             <LogOut className="h-4 w-4" />
-          </a>
+          </Link>
         </div>
       </div>
     </header>
