@@ -49,8 +49,40 @@ interface KhorRorEntry {
 }
 
 export default function TeacherDirectKhorRorPage() {
-  const [teacher] = useState(mockTeacher);
+  const [teacher, setTeacher] = useState<TeacherProfile>(mockTeacher);
+  const [isMissingDeptOpen, setIsMissingDeptOpen] = useState(false);
   const teacherName = teacher.name;
+
+  // Load User Session from Keycloak / Google Workspace SSO
+  useEffect(() => {
+    async function loadUserSession() {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated && data.user) {
+            const u = data.user;
+            setTeacher((prev) => ({
+              ...prev,
+              id: u.id || prev.id,
+              name: u.name || prev.name,
+              email: u.email || prev.email,
+              department: u.department ?? "",
+            }));
+
+            // หากไม่มีข้อมูลแผนกวิชา ให้เด้งป๊อปอัปให้ระบุทันที
+            if (!u.department || u.department.trim() === "" || u.department === "-" || u.department === "ยังไม่ได้ระบุ") {
+              setIsMissingDeptOpen(true);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Could not load user session:", err);
+      }
+    }
+
+    loadUserSession();
+  }, []);
 
   // Active Term & Academic Year (Matches Excel 1/2569 by default or user setting)
   const [currentTerm, setCurrentTerm] = useState<number>(1);
@@ -810,6 +842,25 @@ export default function TeacherDirectKhorRorPage() {
           setNotification({
             type: "success",
             message: `เปลี่ยนการตั้งค่าเป็น ภาคเรียนที่ ${term === 3 ? "ฤดูร้อน" : term} ปีการศึกษา ${year} เรียบร้อยแล้ว`,
+          });
+          setTimeout(() => setNotification(null), 4000);
+        }}
+      />
+
+      {/* Missing Department Popup Modal (บังคับให้ระบุแผนกวิชาหากไม่มีในระบบ) */}
+      <MissingDepartmentModal
+        isOpen={isMissingDeptOpen}
+        teacherName={teacher.name}
+        teacherEmail={teacher.email}
+        onSave={(newDept) => {
+          setTeacher((prev) => ({
+            ...prev,
+            department: newDept,
+          }));
+          setIsMissingDeptOpen(false);
+          setNotification({
+            type: "success",
+            message: `บันทึกข้อมูลสังกัด "${newDept}" เรียบร้อยแล้ว`,
           });
           setTimeout(() => setNotification(null), 4000);
         }}
