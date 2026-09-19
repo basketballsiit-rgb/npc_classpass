@@ -1,9 +1,10 @@
 name: Deploy NPC ClassPass
 
-# สั่งให้ทำงานทุกครั้งที่มีการ Push โค้ดมาที่ branch main หรือ master
+# สั่งให้ทำงานทุกครั้งที่มีการ Push โค้ดมาที่ branch main หรือ master หรือกดสั่ง Run ด้วยตนเอง
 on:
   push:
     branches: [ "main", "master" ]
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
