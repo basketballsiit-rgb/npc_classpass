@@ -434,3 +434,35 @@ export default function LoginPage() {
     </div>
   );
 }
+
+function AuthErrorBanner() {
+  const searchParams = useSearchParams();
+  const error = searchParams.get("error");
+  const rejectedEmail = searchParams.get("email");
+
+  if (!error) return null;
+
+  let title = "เข้าสู่ระบบไม่สำเร็จ";
+  let message = "การเข้าสู่ระบบผ่าน SSO ล้มเหลว กรุณาลองใหม่อีกครั้ง";
+
+  if (error === "invalid_domain") {
+    title = "จำกัดเฉพาะอีเมลสถานศึกษา";
+    message = `อีเมล "${rejectedEmail || ""}" ไม่ใช่บัญชีองค์กร กรุณาเข้าสู่ระบบด้วย Google Workspace ของวิทยาลัยสารพัดช่างน่าน (@npc.ac.th) เท่านั้น`;
+  } else if (error === "auth_cancelled") {
+    title = "ยกเลิกการเข้าสู่ระบบ";
+    message = "คุณได้ยกเลิกขั้นตอนการยืนยันตัวตนกับ Google/Keycloak";
+  } else if (error === "auth_failed") {
+    title = "การเชื่อมต่อขัดข้อง";
+    message = "ไม่สามารถเชื่อมต่อไปยังเซิร์ฟเวอร์ Keycloak SSO ได้ในขณะนี้";
+  }
+
+  return (
+    <div className="mb-5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2.5 animate-shake shadow-xs">
+      <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-rose-500" />
+      <div>
+        <p className="font-bold text-rose-800">{title}</p>
+        <p className="font-medium mt-0.5 text-rose-600 leading-relaxed">{message}</p>
+      </div>
+    </div>
+  );
+}

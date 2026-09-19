@@ -1,16 +1,17 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Header } from "@/components/dashboard/Header";
 import { OfficialMemoModal } from "@/components/dashboard/OfficialMemoModal";
 import { Std02SyncModal } from "@/components/dashboard/Std02SyncModal";
 import { TermYearSettingModal } from "@/components/dashboard/TermYearSettingModal";
+import { MissingDepartmentModal } from "@/components/dashboard/MissingDepartmentModal";
 import { ParsedCourseBlock } from "@/lib/excelParser";
 import {
   allCollegeStudents,
   mockTeacher,
 } from "@/data/mock-data";
-import { Student, Course, StudentAttendance } from "@/types";
+import { Student, Course, StudentAttendance, TeacherProfile } from "@/types";
 import { cleanThaiText } from "@/lib/thaiUtils";
 import {
   Search,
