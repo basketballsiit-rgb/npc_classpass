@@ -50,8 +50,9 @@ import {
   mockCourses,
   mockStudentAttendances,
 } from "@/data/mock-data";
+import Link from "next/link";
 import { KhorRorSubmissionSummary, StudentAttendance } from "@/types";
-import { cleanThaiText } from "@/lib/thaiUtils";
+import { cleanThaiText, getAssetPath } from "@/lib/utils";
 
 export interface ImportBatch {
   id: string;
@@ -284,7 +285,7 @@ export default function AdminDashboardPage() {
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-2xl bg-white p-0.5 shadow-[0_4px_12px_rgba(0,0,0,0.1)] ring-2 ring-white/50 flex items-center justify-center shrink-0">
               <img
-                src="/logo.png"
+                src={getAssetPath("/logo.png")}
                 alt="วิทยาลัยสารพัดช่างน่าน"
                 className="h-full w-full rounded-xl object-cover"
               />
@@ -339,21 +340,21 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Switch to Teacher Mode */}
-            <a
+            <Link
               href="/teacher"
               className="text-xs text-white hover:bg-white/20 font-bold hidden lg:inline-block border border-white/25 rounded-full px-3 py-1 transition-colors"
             >
               ดูมุมมองครูผู้สอน &rarr;
-            </a>
+            </Link>
 
             {/* Logout */}
-            <a
+            <Link
               href="/"
               title="ออกจากระบบ"
               className="p-2 text-purple-100 hover:text-white hover:bg-white/20 rounded-full transition-colors"
             >
               <LogOut className="h-4 w-4" />
-            </a>
+            </Link>
           </div>
         </div>
       </header>
