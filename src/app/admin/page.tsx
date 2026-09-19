@@ -348,13 +348,13 @@ export default function AdminDashboardPage() {
             </Link>
 
             {/* Logout */}
-            <Link
-              href="/"
+            <a
+              href={getAssetPath("/api/auth/logout")}
               title="ออกจากระบบ"
               className="p-2 text-purple-100 hover:text-white hover:bg-white/20 rounded-full transition-colors"
             >
               <LogOut className="h-4 w-4" />
-            </Link>
+            </a>
           </div>
         </div>
       </header>
