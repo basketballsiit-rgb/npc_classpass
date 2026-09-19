@@ -1,4 +1,10 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NPC ClassPass - ระบบตรวจสอบและจัดการนักเรียนหมดสิทธิ์สอบ (ขร.)
+วิทยาลัยเทคนิคนครนายก
+
+## GitHub Auto-Sync
+ระบบมีระบบ Auto-Sync อัตโนมัติ: เมื่อมีการแก้ไขไฟล์ ระบบจะทำการ Commit และ Push ขึ้น GitHub (`https://github.com/basketballsiit-rgb/npc_classpass.git`) ให้อัตโนมัติ
+
+- รันด้วยคำสั่ง: `npm run auto-sync` หรือดับเบิ้ลคลิกไฟล์ `auto-sync.bat`
 
 ## Getting Started
 
