@@ -19,6 +19,7 @@ import {
   Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getAssetPath } from "@/lib/utils";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -78,7 +79,7 @@ export default function LoginPage() {
           <div className="relative z-10 flex items-center gap-3">
             <div className="h-12 w-12 rounded-2xl bg-white p-1 shadow-[0_6px_16px_rgba(0,0,0,0.1)] ring-4 ring-white/40 flex items-center justify-center shrink-0">
               <img
-                src="/logo.png"
+                src={getAssetPath("/logo.png")}
                 alt="วิทยาลัยสารพัดช่างน่าน"
                 className="h-full w-full rounded-xl object-cover"
               />
