@@ -427,9 +427,6 @@ export default function AdminDashboardPage() {
       body: JSON.stringify({ action: "reset_mock" }),
     }).catch((err) => console.error("Failed to persist reset mock:", err));
   };
-    setNotification(`🗑️ ลบนักศึกษารหัส ${studentId} ออกจากรายชื่อ ขร. วิชา ${courseCode} เรียบร้อยแล้ว`);
-    setTimeout(() => setNotification(null), 5000);
-  };
 
   return (
     <div className="min-h-screen bg-[#F8F5FD]">
@@ -1370,15 +1367,20 @@ export default function AdminDashboardPage() {
           const incomingCodes = new Set(data.courses.map((c) => c.courseCode));
           const hasDuplicates = submissions.some((s) => incomingCodes.has(s.courseCode));
 
+          let nextSubmissions: KhorRorSubmissionSummary[] = [];
           if (hasDuplicates) {
-            // Replace existing records with new records
-            setSubmissions((prev) => [
+            nextSubmissions = [
               ...newSubmissions,
-              ...prev.filter((s) => !incomingCodes.has(s.courseCode)),
-            ]);
+              ...submissions.filter((s) => !incomingCodes.has(s.courseCode)),
+            ];
           } else {
-            setSubmissions((prev) => [...newSubmissions, ...prev]);
+            nextSubmissions = [...newSubmissions, ...submissions];
           }
+
+          setSubmissions(nextSubmissions);
+          try {
+            localStorage.setItem("npc_classpass_submissions", JSON.stringify(nextSubmissions));
+          } catch (e) {}
 
           // Register import batch for rollback
           const newBatch: ImportBatch = {
@@ -1389,7 +1391,22 @@ export default function AdminDashboardPage() {
             studentsCount: data.allStudents.length,
             submissionIds: newSubmissionIds,
           };
-          setImportBatches((prev) => [newBatch, ...prev]);
+          const nextBatches = [newBatch, ...importBatches];
+          setImportBatches(nextBatches);
+          try {
+            localStorage.setItem("npc_classpass_batches", JSON.stringify(nextBatches));
+          } catch (e) {}
+
+          // Persist to server API
+          fetch(getAssetPath("/api/submissions"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "import",
+              submissions: newSubmissions,
+              batch: newBatch,
+            }),
+          }).catch((err) => console.error("Failed to persist imported batch:", err));
 
           setNotification(
             hasDuplicates
@@ -1462,6 +1479,8 @@ export default function AdminDashboardPage() {
                     handleDeleteStudent(deleteTarget.id, deleteTarget.batchId);
                   } else if (deleteTarget.type === "all_imported") {
                     handleClearAllImports();
+                  } else if (deleteTarget.type === "reset_mock") {
+                    handleResetToMock();
                   }
                   setDeleteTarget(null);
                 }}
