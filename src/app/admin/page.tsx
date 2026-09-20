@@ -87,16 +87,13 @@ export default function AdminDashboardPage() {
     }
     loadAdminSession();
   }, []);
-  const [currentTerm, setCurrentTerm] = useState<number>(1);
-  const [currentAcademicYear, setCurrentAcademicYear] = useState<number>(2569);
-  const [isTermModalOpen, setIsTermModalOpen] = useState(false);
 
   // Import Batches Tracking (User can rollback / delete imported files from database)
   const [importBatches, setImportBatches] = useState<ImportBatch[]>([]);
 
   // Delete Confirmation Modal State
   const [deleteTarget, setDeleteTarget] = useState<{
-    type: "batch" | "submission" | "student" | "all_imported";
+    type: "batch" | "submission" | "student" | "all_imported" | "reset_mock";
     id?: string;
     batchId?: string;
     title: string;
@@ -105,6 +102,53 @@ export default function AdminDashboardPage() {
 
   const [submissions, setSubmissions] =
     useState<KhorRorSubmissionSummary[]>(mockSubmissions);
+
+  // Load persistent submissions and batches from API & localStorage
+  useEffect(() => {
+    async function loadPersistentData() {
+      // 1. First fast read from localStorage
+      try {
+        const localSubs = localStorage.getItem("npc_classpass_submissions");
+        if (localSubs !== null) {
+          const parsed = JSON.parse(localSubs);
+          if (Array.isArray(parsed)) {
+            setSubmissions(parsed);
+          }
+        }
+        const localBatches = localStorage.getItem("npc_classpass_batches");
+        if (localBatches !== null) {
+          const parsed = JSON.parse(localBatches);
+          if (Array.isArray(parsed)) {
+            setImportBatches(parsed);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not read from localStorage:", err);
+      }
+
+      // 2. Fetch authoritative data from server API
+      try {
+        const res = await fetch(getAssetPath("/api/submissions"));
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.submissions)) {
+            setSubmissions(data.submissions);
+            setImportBatches(Array.isArray(data.batches) ? data.batches : []);
+            localStorage.setItem("npc_classpass_submissions", JSON.stringify(data.submissions));
+            localStorage.setItem("npc_classpass_batches", JSON.stringify(data.batches || []));
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch submissions from API:", err);
+      }
+    }
+
+    loadPersistentData();
+  }, []);
+
+  const [currentTerm, setCurrentTerm] = useState<number>(1);
+  const [currentAcademicYear, setCurrentAcademicYear] = useState<number>(2569);
+  const [isTermModalOpen, setIsTermModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"inbox" | "all_students">("inbox");
   const [selectedSubmission, setSelectedSubmission] =
     useState<KhorRorSubmissionSummary | null>(null);
@@ -225,16 +269,26 @@ export default function AdminDashboardPage() {
 
   // Handle Approve Submission
   const handleApproveSubmission = (subId: string) => {
-    setSubmissions((prev) =>
-      prev.map((sub) =>
-        sub.id === subId ? { ...sub, status: "APPROVED" } : sub
-      )
-    );
+    setSubmissions((prev) => {
+      const updated = prev.map((sub) =>
+        sub.id === subId ? { ...sub, status: "APPROVED" as const } : sub
+      );
+      try {
+        localStorage.setItem("npc_classpass_submissions", JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
     setIsReviewModalOpen(false);
     setNotification(
       "อนุมัติบันทึกข้อความขอประกาศ ขร. และบันทึกลงระบบทะเบียนเรียบร้อยแล้ว"
     );
     setTimeout(() => setNotification(null), 5000);
+
+    fetch(getAssetPath("/api/submissions"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "approve", id: subId }),
+    }).catch((err) => console.error("Failed to persist approval:", err));
   };
 
   // Delete an entire imported batch from the system and database (User Requested Rollback)
@@ -242,58 +296,137 @@ export default function AdminDashboardPage() {
     const batch = importBatches.find((b) => b.id === batchId);
     if (!batch) return;
 
-    setSubmissions((prev) => prev.filter((s) => !batch.submissionIds.includes(s.id)));
-    setImportBatches((prev) => prev.filter((b) => b.id !== batchId));
+    setSubmissions((prev) => {
+      const updated = prev.filter((s) => !batch.submissionIds.includes(s.id));
+      try {
+        localStorage.setItem("npc_classpass_submissions", JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    setImportBatches((prev) => {
+      const updated = prev.filter((b) => b.id !== batchId);
+      try {
+        localStorage.setItem("npc_classpass_batches", JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
     setNotification(
       `🗑️ ลบไฟล์ข้อมูล "${batch.fileName}" ออกจากระบบและฐานข้อมูลเรียบร้อยแล้ว (ลบ ${batch.coursesCount} รายวิชา / รวม ${batch.studentsCount} คน)`
     );
     setTimeout(() => setNotification(null), 6000);
+
+    fetch(getAssetPath("/api/submissions"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete_batch", batchId }),
+    }).catch((err) => console.error("Failed to persist delete batch:", err));
   };
 
   // Clear all imported data (purges all submissions created via import or starting with sub-excel-)
   const handleClearAllImports = () => {
     const batchSubIds = importBatches.flatMap((b) => b.submissionIds);
-    setSubmissions((prev) =>
-      prev.filter((s) => !batchSubIds.includes(s.id) && !s.id.startsWith("sub-excel-"))
-    );
+    setSubmissions((prev) => {
+      const updated = prev.filter((s) => !batchSubIds.includes(s.id) && !s.id.startsWith("sub-excel-"));
+      try {
+        localStorage.setItem("npc_classpass_submissions", JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
     setImportBatches([]);
+    try {
+      localStorage.setItem("npc_classpass_batches", JSON.stringify([]));
+    } catch (e) {}
     setNotification("🗑️ ลบข้อมูลที่นำเข้าทั้งหมดออกจากระบบและฐานข้อมูลเรียบร้อยแล้ว คืนค่าสถิติสู่ปกติ");
     setTimeout(() => setNotification(null), 6000);
+
+    fetch(getAssetPath("/api/submissions"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "clear_all_imports" }),
+    }).catch((err) => console.error("Failed to persist clear all imports:", err));
   };
 
-  // Delete a single submission/course
+  // Delete a single submission/course (ลบรายการวิชาและบันทึกลงฐานข้อมูลถาวร)
   const handleDeleteSubmission = (subId: string) => {
     const subToDelete = submissions.find((s) => s.id === subId);
-    setSubmissions((prev) => prev.filter((s) => s.id !== subId));
-    setImportBatches((prev) =>
-      prev
+    setSubmissions((prev) => {
+      const updated = prev.filter((s) => s.id !== subId);
+      try {
+        localStorage.setItem("npc_classpass_submissions", JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    setImportBatches((prev) => {
+      const updated = prev
         .map((b) => ({
           ...b,
           submissionIds: b.submissionIds.filter((id) => id !== subId),
         }))
-        .filter((b) => b.submissionIds.length > 0)
-    );
+        .filter((b) => b.submissionIds.length > 0);
+      try {
+        localStorage.setItem("npc_classpass_batches", JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
     setNotification(
       `🗑️ ลบรายการวิชา "${subToDelete?.courseCode || ""} ${subToDelete?.courseName || ""}" และรายชื่อ ขร. ทั้งหมดออกจากระบบเรียบร้อยแล้ว`
     );
     setTimeout(() => setNotification(null), 5000);
+
+    // Persist to server storage permanently
+    fetch(getAssetPath("/api/submissions"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete_submission", id: subId }),
+    }).catch((err) => console.error("Failed to persist delete submission:", err));
   };
 
   // Delete a single student from a course submission
   const handleDeleteStudent = (studentId: string, courseCode: string) => {
-    setSubmissions((prev) =>
-      prev.map((sub) => {
+    setSubmissions((prev) => {
+      const updated = prev.map((sub) => {
         if (sub.courseCode === courseCode) {
-          const updated = sub.students.filter((s) => s.student.studentId !== studentId);
+          const updatedStudents = sub.students.filter((s) => s.student.studentId !== studentId);
           return {
             ...sub,
-            studentCount: updated.length,
-            students: updated,
+            studentCount: updatedStudents.length,
+            students: updatedStudents,
           };
         }
         return sub;
-      })
-    );
+      });
+      try {
+        localStorage.setItem("npc_classpass_submissions", JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    setNotification(`🗑️ ลบนักศึกษารหัส ${studentId} ออกจากรายชื่อ ขร. วิชา ${courseCode} เรียบร้อยแล้ว`);
+    setTimeout(() => setNotification(null), 5000);
+
+    fetch(getAssetPath("/api/submissions"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete_student", studentId, courseCode }),
+    }).catch((err) => console.error("Failed to persist delete student:", err));
+  };
+
+  // Reset to initial mock data (คืนค่าข้อมูลตัวอย่างตั้งต้น)
+  const handleResetToMock = () => {
+    setSubmissions(mockSubmissions);
+    setImportBatches([]);
+    try {
+      localStorage.setItem("npc_classpass_submissions", JSON.stringify(mockSubmissions));
+      localStorage.setItem("npc_classpass_batches", JSON.stringify([]));
+    } catch (e) {}
+    setNotification("🔄 คืนค่าข้อมูลตัวอย่างเริ่มต้นของระบบเรียบร้อยแล้ว");
+    setTimeout(() => setNotification(null), 5000);
+
+    fetch(getAssetPath("/api/submissions"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reset_mock" }),
+    }).catch((err) => console.error("Failed to persist reset mock:", err));
+  };
     setNotification(`🗑️ ลบนักศึกษารหัส ${studentId} ออกจากรายชื่อ ขร. วิชา ${courseCode} เรียบร้อยแล้ว`);
     setTimeout(() => setNotification(null), 5000);
   };
