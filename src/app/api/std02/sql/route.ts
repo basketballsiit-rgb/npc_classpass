@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
     // 2. ตรวจสอบว่ามีไฟล์บน Server ใน Root Directory หรือไม่ (เช่น tb_course.sql ในโฟลเดอร์โปรเจกต์)
     if (filename) {
       const safeBasename = path.basename(filename);
-      const localFilePath = path.join(process.cwd(), safeBasename);
+      const localFilePath = path.join(/*turbopackIgnore: true*/ process.cwd(), safeBasename);
 
       if (fs.existsSync(localFilePath) && /course|subject/i.test(safeBasename)) {
         const parsedCourses = await parseTbCourseFromFile(localFilePath);
