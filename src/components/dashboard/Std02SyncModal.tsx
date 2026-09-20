@@ -1158,50 +1158,112 @@ export const Std02SyncModal: React.FC<Std02SyncModalProps> = ({
             {/* SQL Execution Results & Preview Table */}
             {sqlExecutionResult && (
               <div className="space-y-3 pt-2 border-t border-[#F0EBF7]">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-[#FAF7FE] p-3 rounded-2xl border border-[#EAE3F5] text-xs">
-                  <div className="flex items-center gap-2">
-                    <TableIcon className="h-4 w-4 text-[#8C78EA]" />
-                    <span className="font-bold text-[#2B244D]">
-                      ตัวอย่างข้อมูลที่ได้จาก SQL:
-                    </span>
-                    <span className="rounded-full px-2.5 py-0.5 text-[10px] font-black bg-[#EDFBF5] text-[#1E7250]">
-                      {sqlExecutionResult.students.length} รายการ
-                    </span>
-                  </div>
+                {sqlExecutionResult.type === "courses" ? (
+                  <>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-[#FAF7FE] p-3 rounded-2xl border border-[#EAE3F5] text-xs">
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="h-4 w-4 text-[#8C78EA]" />
+                        <span className="font-bold text-[#2B244D]">
+                          คลังรายวิชาจากฐานข้อมูล ศธ.02 (tb_course):
+                        </span>
+                        <span className="rounded-full px-2.5 py-0.5 text-[10px] font-black bg-[#EDFBF5] text-[#1E7250]">
+                          {sqlExecutionResult.courses?.length || 0} รายวิชา
+                        </span>
+                        {sqlExecutionResult.totalCatalog && (
+                          <span className="rounded-full px-2 py-0.5 text-[10px] font-bold bg-purple-100 text-[#7A63E5]">
+                            รวมในระบบ {sqlExecutionResult.totalCatalog} วิชา
+                          </span>
+                        )}
+                      </div>
 
-                  <button
-                    type="button"
-                    onClick={handleConfirmSqlImport}
-                    className="btn-clay-purple px-4 py-1.5 text-xs font-bold"
-                  >
-                    บันทึกข้อมูลเข้าสู่ระบบ ClassPass
-                  </button>
-                </div>
+                      <button
+                        type="button"
+                        onClick={handleConfirmSqlImport}
+                        className="btn-clay-purple px-4 py-1.5 text-xs font-bold"
+                      >
+                        ✓ เสร็จสิ้น (บันทึกเข้าคลังวิชาเรียบร้อย)
+                      </button>
+                    </div>
 
-                <div className="rounded-2xl border border-[#EAE3F5] overflow-hidden max-h-52 overflow-y-auto">
-                  <table className="w-full text-xs text-left">
-                    <thead className="bg-[#F3EEFA] text-[#2B244D] font-bold sticky top-0 border-b border-[#EAE3F5]">
-                      <tr>
-                        <th className="py-2 px-3">ที่</th>
-                        <th className="py-2 px-3">รหัสประจำตัว</th>
-                        <th className="py-2 px-3">ชื่อ - สกุล</th>
-                        <th className="py-2 px-3">ระดับ / กลุ่มเรียน</th>
-                        <th className="py-2 px-3">แผนกวิชา</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#F0EBF7]">
-                      {sqlExecutionResult.students.map((std, idx) => (
-                        <tr key={std.id || idx} className="hover:bg-purple-50/40">
-                          <td className="py-1.5 px-3 font-mono text-[#857E9E]">{idx + 1}</td>
-                          <td className="py-1.5 px-3 font-mono font-bold text-[#7A63E5]">{std.studentId}</td>
-                          <td className="py-1.5 px-3 font-bold text-[#2B244D]">{std.prefix}{std.firstName} {std.lastName}</td>
-                          <td className="py-1.5 px-3 text-[#5D5775]">{std.classGroup}</td>
-                          <td className="py-1.5 px-3 text-[#5D5775]">{std.department}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                    <div className="rounded-2xl border border-[#EAE3F5] overflow-hidden max-h-60 overflow-y-auto">
+                      <table className="w-full text-xs text-left">
+                        <thead className="bg-[#F3EEFA] text-[#2B244D] font-bold sticky top-0 border-b border-[#EAE3F5]">
+                          <tr>
+                            <th className="py-2 px-3">ที่</th>
+                            <th className="py-2 px-3">รหัสวิชา</th>
+                            <th className="py-2 px-3">ชื่อรายวิชา (ไทย)</th>
+                            <th className="py-2 px-3">ชื่อภาษาอังกฤษ</th>
+                            <th className="py-2 px-3 text-center">นก. (ท-ป)</th>
+                            <th className="py-2 px-3">หมวด/ประเภทวิชา</th>
+                            <th className="py-2 px-3 text-center">ปีหลักสูตร</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#F0EBF7]">
+                          {(sqlExecutionResult.courses || []).map((crs: any, idx: number) => (
+                            <tr key={crs.id || idx} className="hover:bg-purple-50/40">
+                              <td className="py-1.5 px-3 font-mono text-[#857E9E]">{idx + 1}</td>
+                              <td className="py-1.5 px-3 font-mono font-bold text-[#7A63E5]">{crs.code}</td>
+                              <td className="py-1.5 px-3 font-bold text-[#2B244D]">{crs.name}</td>
+                              <td className="py-1.5 px-3 text-[#857E9E] text-[11px]">{crs.nameEn || "-"}</td>
+                              <td className="py-1.5 px-3 text-center font-bold text-[#2B244D]">
+                                {crs.credits} ({crs.theory || 0}-{crs.practice || 0})
+                              </td>
+                              <td className="py-1.5 px-3 text-[#5D5775]">{crs.subjectType || "-"}</td>
+                              <td className="py-1.5 px-3 text-center font-mono text-[#857E9E]">{crs.curriculumYear || "-"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-[#FAF7FE] p-3 rounded-2xl border border-[#EAE3F5] text-xs">
+                      <div className="flex items-center gap-2">
+                        <TableIcon className="h-4 w-4 text-[#8C78EA]" />
+                        <span className="font-bold text-[#2B244D]">
+                          ตัวอย่างข้อมูลนักเรียนที่ได้จาก SQL:
+                        </span>
+                        <span className="rounded-full px-2.5 py-0.5 text-[10px] font-black bg-[#EDFBF5] text-[#1E7250]">
+                          {sqlExecutionResult.students?.length || 0} รายการ
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleConfirmSqlImport}
+                        className="btn-clay-purple px-4 py-1.5 text-xs font-bold"
+                      >
+                        บันทึกข้อมูลเข้าสู่ระบบ ClassPass
+                      </button>
+                    </div>
+
+                    <div className="rounded-2xl border border-[#EAE3F5] overflow-hidden max-h-52 overflow-y-auto">
+                      <table className="w-full text-xs text-left">
+                        <thead className="bg-[#F3EEFA] text-[#2B244D] font-bold sticky top-0 border-b border-[#EAE3F5]">
+                          <tr>
+                            <th className="py-2 px-3">ที่</th>
+                            <th className="py-2 px-3">รหัสประจำตัว</th>
+                            <th className="py-2 px-3">ชื่อ - สกุล</th>
+                            <th className="py-2 px-3">ระดับ / กลุ่มเรียน</th>
+                            <th className="py-2 px-3">แผนกวิชา</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#F0EBF7]">
+                          {(sqlExecutionResult.students || []).map((std, idx) => (
+                            <tr key={std.id || idx} className="hover:bg-purple-50/40">
+                              <td className="py-1.5 px-3 font-mono text-[#857E9E]">{idx + 1}</td>
+                              <td className="py-1.5 px-3 font-mono font-bold text-[#7A63E5]">{std.studentId}</td>
+                              <td className="py-1.5 px-3 font-bold text-[#2B244D]">{std.prefix}{std.firstName} {std.lastName}</td>
+                              <td className="py-1.5 px-3 text-[#5D5775]">{std.classGroup}</td>
+                              <td className="py-1.5 px-3 text-[#5D5775]">{std.department}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>

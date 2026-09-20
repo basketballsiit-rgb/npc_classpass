@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Header } from "@/components/dashboard/Header";
 import { OfficialMemoModal } from "@/components/dashboard/OfficialMemoModal";
 import { Std02SyncModal } from "@/components/dashboard/Std02SyncModal";
@@ -29,6 +29,7 @@ import {
   Sparkles,
   Info,
   Calendar,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -108,6 +109,85 @@ export default function TeacherDirectKhorRorPage() {
   // Course State
   const [courseCode, setCourseCode] = useState("20101-2009");
   const [courseName, setCourseName] = useState("งานวัดละเอียดช่างยนต์");
+
+  // Course Autocomplete State (จากคลัง ศธ.02)
+  interface CourseSearchItem {
+    id: string;
+    code: string;
+    name: string;
+    nameEn?: string;
+    credits: number;
+    theory?: number;
+    practice?: number;
+    curriculumYear?: string;
+    subjectType?: string;
+  }
+  const [courseSuggestions, setCourseSuggestions] = useState<CourseSearchItem[]>([]);
+  const [isSearchingCourse, setIsSearchingCourse] = useState(false);
+  const [showCourseSuggestions, setShowCourseSuggestions] = useState(false);
+  const [activeSearchField, setActiveSearchField] = useState<"code" | "name" | null>(null);
+  const courseSearchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Debounced search courses from /api/courses/search
+  useEffect(() => {
+    if (!activeSearchField) return;
+    const query = activeSearchField === "code" ? courseCode : courseName;
+    if (!query || query.trim().length < 2) {
+      setCourseSuggestions([]);
+      setShowCourseSuggestions(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearchingCourse(true);
+      try {
+        const res = await fetch(
+          getAssetPath(`/api/courses/search?q=${encodeURIComponent(query.trim())}&limit=12`)
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.courses)) {
+            setCourseSuggestions(data.courses);
+            setShowCourseSuggestions(data.courses.length > 0);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to search course catalog:", err);
+      } finally {
+        setIsSearchingCourse(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [courseCode, courseName, activeSearchField]);
+
+  // Click outside to close course suggestions
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        courseSearchContainerRef.current &&
+        !courseSearchContainerRef.current.contains(e.target as Node)
+      ) {
+        setShowCourseSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const handleSelectCourseSuggestion = (c: CourseSearchItem) => {
+    setCourseCode(c.code);
+    setCourseName(c.name);
+    setShowCourseSuggestions(false);
+    setActiveSearchField(null);
+    setNotification({
+      type: "info",
+      message: `เลือกรายวิชา ${c.code} ${c.name} (${c.credits || 0} นก.) จากคลัง ศธ.02 เรียบร้อยแล้ว`,
+    });
+    setTimeout(() => setNotification(null), 3000);
+  };
 
   // Search State for Student Registry
   const [searchQuery, setSearchQuery] = useState("");
@@ -478,53 +558,151 @@ export default function TeacherDirectKhorRorPage() {
             </div>
           </div>
 
-          {/* Course Inputs Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-            <div>
-              <label className="text-xs font-bold text-[#2B244D] block mb-1.5">
-                รหัสวิชา (Course Code)
-              </label>
-              <input
-                type="text"
-                value={courseCode}
-                onChange={(e) => setCourseCode(e.target.value)}
-                placeholder="เช่น 20000-1201"
-                className="w-full px-3.5 py-2.5 rounded-2xl border border-[#E8DEF8] bg-[#FAF7FE] font-mono font-bold text-sm text-[#2B244D] focus:outline-none focus:border-[#8C78EA] focus:bg-white focus:ring-2 focus:ring-[#8C78EA]/20 transition-all shadow-xs"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-[#2B244D] block mb-1.5">
-                ชื่อรายวิชา (Course Name)
-              </label>
-              <input
-                type="text"
-                value={courseName}
-                onChange={(e) => setCourseName(e.target.value)}
-                placeholder="เช่น ภาษาอังกฤษเพื่อการสื่อสาร"
-                className="w-full px-3.5 py-2.5 rounded-2xl border border-[#E8DEF8] bg-[#FAF7FE] font-bold text-sm text-[#2B244D] focus:outline-none focus:border-[#8C78EA] focus:bg-white focus:ring-2 focus:ring-[#8C78EA]/20 transition-all shadow-xs"
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-bold text-[#2B244D] block">
-                  ครูผู้สอน (Teacher Name)
-                </label>
-                <span className="text-[10px] text-[#8C78EA] font-semibold">
-                  (ดึงอัตโนมัติจากการ Login)
-                </span>
-              </div>
-              <div className="flex items-center gap-2.5 h-[42px] px-3.5 rounded-2xl border border-[#E8DEF8] bg-[#FAF7FE] text-[#2B244D] font-bold text-sm shadow-xs select-none">
-                <div className="squircle-purple h-6 w-6 text-[11px] shrink-0">
-                  {teacher.name.replace(/^(นาย|นางสาว|นาง|อ\.|อาจารย์|ครู)\s*/, "").charAt(0) || "ค"}
+          {/* Course Inputs Grid with Autocomplete */}
+          <div ref={courseSearchContainerRef} className="relative pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="relative">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-[#2B244D] block">
+                    รหัสวิชา (Course Code)
+                  </label>
+                  {isSearchingCourse && activeSearchField === "code" ? (
+                    <span className="text-[10px] text-[#8C78EA] flex items-center gap-1 font-semibold animate-pulse">
+                      <Loader2 className="w-2.5 h-2.5 animate-spin" /> ค้นหา...
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-[#857E9E]">
+                      ศธ.02 อัตโนมัติ
+                    </span>
+                  )}
                 </div>
-                <span className="truncate">{teacher.name}</span>
-                <span className="ml-auto text-[10px] font-black py-0.5 px-2 rounded-full bg-[#EFEAF6] text-[#7A63E5] shrink-0">
-                  ผู้สอน
-                </span>
+                <input
+                  type="text"
+                  value={courseCode}
+                  onChange={(e) => {
+                    setCourseCode(e.target.value);
+                    setActiveSearchField("code");
+                  }}
+                  onFocus={() => {
+                    setActiveSearchField("code");
+                    if (courseCode.trim().length >= 2 && courseSuggestions.length > 0) {
+                      setShowCourseSuggestions(true);
+                    }
+                  }}
+                  placeholder="เช่น 20000-1201"
+                  className="w-full px-3.5 py-2.5 rounded-2xl border border-[#E8DEF8] bg-[#FAF7FE] font-mono font-bold text-sm text-[#2B244D] focus:outline-none focus:border-[#8C78EA] focus:bg-white focus:ring-2 focus:ring-[#8C78EA]/20 transition-all shadow-xs"
+                />
+              </div>
+
+              <div className="relative">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-[#2B244D] block">
+                    ชื่อรายวิชา (Course Name)
+                  </label>
+                  {isSearchingCourse && activeSearchField === "name" ? (
+                    <span className="text-[10px] text-[#8C78EA] flex items-center gap-1 font-semibold animate-pulse">
+                      <Loader2 className="w-2.5 h-2.5 animate-spin" /> ค้นหา...
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-[#857E9E]">
+                      พิมพ์เพื่อค้นหา
+                    </span>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={courseName}
+                  onChange={(e) => {
+                    setCourseName(e.target.value);
+                    setActiveSearchField("name");
+                  }}
+                  onFocus={() => {
+                    setActiveSearchField("name");
+                    if (courseName.trim().length >= 2 && courseSuggestions.length > 0) {
+                      setShowCourseSuggestions(true);
+                    }
+                  }}
+                  placeholder="เช่น ภาษาอังกฤษเพื่อการสื่อสาร"
+                  className="w-full px-3.5 py-2.5 rounded-2xl border border-[#E8DEF8] bg-[#FAF7FE] font-bold text-sm text-[#2B244D] focus:outline-none focus:border-[#8C78EA] focus:bg-white focus:ring-2 focus:ring-[#8C78EA]/20 transition-all shadow-xs"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-[#2B244D] block">
+                    ครูผู้สอน (Teacher Name)
+                  </label>
+                  <span className="text-[10px] text-[#8C78EA] font-semibold">
+                    (ดึงอัตโนมัติจากการ Login)
+                  </span>
+                </div>
+                <div className="flex items-center gap-2.5 h-[42px] px-3.5 rounded-2xl border border-[#E8DEF8] bg-[#FAF7FE] text-[#2B244D] font-bold text-sm shadow-xs select-none">
+                  <div className="squircle-purple h-6 w-6 text-[11px] shrink-0">
+                    {teacher.name.replace(/^(นาย|นางสาว|นาง|อ\.|อาจารย์|ครู)\s*/, "").charAt(0) || "ค"}
+                  </div>
+                  <span className="truncate">{teacher.name}</span>
+                  <span className="ml-auto text-[10px] font-black py-0.5 px-2 rounded-full bg-[#EFEAF6] text-[#7A63E5] shrink-0">
+                    ผู้สอน
+                  </span>
+                </div>
               </div>
             </div>
+
+            {/* Course Suggestions Dropdown */}
+            {showCourseSuggestions && courseSuggestions.length > 0 && (
+              <div className="absolute z-30 left-0 right-0 sm:right-auto sm:w-[620px] mt-2 bg-white rounded-2xl border border-[#E8DEF8] shadow-2xl overflow-hidden backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="px-4 py-2.5 bg-[#FAF7FE] border-b border-[#E8DEF8] flex items-center justify-between text-xs text-[#857E9E]">
+                  <span className="flex items-center gap-1.5 font-bold text-[#7A63E5]">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    พบคลังรายวิชา ศธ.02 ({courseSuggestions.length} รายการ)
+                  </span>
+                  <span className="text-[11px]">คลิกเพื่อเลือกใช้วิชานี้</span>
+                </div>
+                <div className="max-h-[300px] overflow-y-auto divide-y divide-[#F3EEFA]">
+                  {courseSuggestions.map((c) => (
+                    <button
+                      key={c.id || c.code}
+                      type="button"
+                      onClick={() => handleSelectCourseSuggestion(c)}
+                      className="w-full text-left px-4 py-3 hover:bg-[#FAF7FE] transition-colors flex items-start justify-between gap-3 group cursor-pointer"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-mono font-black text-sm text-[#7A63E5] bg-[#EFEAF6] px-2 py-0.5 rounded-lg group-hover:bg-[#8C78EA] group-hover:text-white transition-colors">
+                            {c.code}
+                          </span>
+                          <span className="font-bold text-sm text-[#2B244D]">
+                            {c.name}
+                          </span>
+                        </div>
+                        {c.nameEn && (
+                          <p className="text-xs text-[#857E9E] font-medium italic mb-1">
+                            {c.nameEn}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2 text-[11px] text-[#857E9E]">
+                          {c.curriculumYear && (
+                            <span className="bg-[#FAF7FE] border border-[#E8DEF8] px-1.5 py-0.5 rounded text-[10px]">
+                              หลักสูตร {c.curriculumYear}
+                            </span>
+                          )}
+                          {c.subjectType && (
+                            <span className="bg-[#FAF7FE] border border-[#E8DEF8] px-1.5 py-0.5 rounded text-[10px]">
+                              {c.subjectType}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-xs font-bold text-[#7A63E5] bg-[#FAF7FE] border border-[#E8DEF8] px-2.5 py-1 rounded-full inline-block">
+                          {c.credits || 0} นก. ({c.theory || 0}-{c.practice || 0}-{c.credits || 0})
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
