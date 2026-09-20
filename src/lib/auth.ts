@@ -18,8 +18,8 @@ export interface UserSession {
 export const KEYCLOAK_CONFIG = {
   baseUrl: process.env.KEYCLOAK_BASE_URL || "https://service.npc.ac.th",
   realm: process.env.KEYCLOAK_REALM || "NPC-SSO",
-  clientId: process.env.KEYCLOAK_CLIENT_ID || "apr-app",
-  clientSecret: process.env.KEYCLOAK_CLIENT_SECRET || "okTBeJblJmeNL8szsuNija3t6OqkZSx9",
+  clientId: process.env.KEYCLOAK_CLIENT_ID || "npc-go",
+  clientSecret: process.env.KEYCLOAK_CLIENT_SECRET || "UBPFJr7kkfFSZKrXIhbhdb0zfpEHAqdc",
   npcjobApiUrl: process.env.NPCJOB_API_URL || "https://service.npc.ac.th/npcjob/api_profile.php",
   npcjobApiToken: process.env.NPCJOB_API_TOKEN || "npc_sf_2026_api_key_x9k2m",
 };
