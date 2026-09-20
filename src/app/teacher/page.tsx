@@ -51,12 +51,11 @@ interface KhorRorEntry {
 
 export default function TeacherDirectKhorRorPage() {
   const [teacher, setTeacher] = useState<TeacherProfile>({
+    ...mockTeacher,
     id: "loading",
     name: "กำลังโหลดข้อมูล...",
     email: "",
     department: "",
-    term: 1,
-    academicYear: 2569,
   });
   const [isMissingDeptOpen, setIsMissingDeptOpen] = useState(false);
   const teacherName = teacher.name;

@@ -73,11 +73,12 @@ export default function AdminDashboardPage() {
         if (res.ok) {
           const data = await res.json();
           if (data.authenticated && data.user) {
-            setAdmin({
+            setAdmin((prev) => ({
+              ...prev,
               name: data.user.name || "ผู้ดูแลระบบ",
-              email: data.user.email || "",
-              department: data.user.department || "งานวัดผลและประเมินผล",
-            });
+              email: data.user.email || prev.email,
+              department: data.user.department || prev.department,
+            }));
           }
         }
       } catch (e) {
