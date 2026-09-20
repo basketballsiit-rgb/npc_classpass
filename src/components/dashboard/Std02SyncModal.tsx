@@ -31,6 +31,7 @@ import {
 import { Student } from "@/types";
 import { parseKhorRorExcelFile, ParsedKhorRorExcel, ParsedCourseBlock } from "@/lib/excelParser";
 import { cleanThaiText } from "@/lib/thaiUtils";
+import { getAssetPath } from "@/lib/utils";
 
 interface Std02SyncModalProps {
   isOpen: boolean;
@@ -203,7 +204,7 @@ export const Std02SyncModal: React.FC<Std02SyncModalProps> = ({
     setSyncStatus(null);
 
     try {
-      const res = await fetch("/api/std02/sql", {
+      const res = await fetch(getAssetPath("/api/std02/sql"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

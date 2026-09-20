@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Building2, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getAssetPath } from "@/lib/utils";
 
 interface MissingDepartmentModalProps {
   isOpen: boolean;
@@ -54,7 +55,7 @@ export const MissingDepartmentModal: React.FC<MissingDepartmentModalProps> = ({
 
     try {
       // เรียก API บันทึกแผนกวิชา
-      const res = await fetch("/api/auth/me", {
+      const res = await fetch(getAssetPath("/api/auth/me"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ department: finalDepartment }),

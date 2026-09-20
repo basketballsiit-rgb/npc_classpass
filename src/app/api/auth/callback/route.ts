@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 
     const firstName = userInfo.given_name || userInfo.firstName || "";
     const lastName = userInfo.family_name || userInfo.lastName || "";
-    let fullName = npcjobProfile.displayName || trimName(`${firstName} ${lastName}`);
+    let fullName = npcjobProfile.displayName || userInfo.name || trimName(`${firstName} ${lastName}`);
 
     if (!fullName || fullName === " ") {
       fullName = email.split("@")[0];

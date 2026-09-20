@@ -13,6 +13,7 @@ import {
 } from "@/data/mock-data";
 import { Student, Course, StudentAttendance, TeacherProfile } from "@/types";
 import { cleanThaiText } from "@/lib/thaiUtils";
+import { getAssetPath } from "@/lib/utils";
 import {
   Search,
   Users,
@@ -49,7 +50,14 @@ interface KhorRorEntry {
 }
 
 export default function TeacherDirectKhorRorPage() {
-  const [teacher, setTeacher] = useState<TeacherProfile>(mockTeacher);
+  const [teacher, setTeacher] = useState<TeacherProfile>({
+    id: "loading",
+    name: "กำลังโหลดข้อมูล...",
+    email: "",
+    department: "",
+    term: 1,
+    academicYear: 2569,
+  });
   const [isMissingDeptOpen, setIsMissingDeptOpen] = useState(false);
   const teacherName = teacher.name;
 
@@ -57,7 +65,7 @@ export default function TeacherDirectKhorRorPage() {
   useEffect(() => {
     async function loadUserSession() {
       try {
-        const res = await fetch("/api/auth/me");
+        const res = await fetch(getAssetPath("/api/auth/me"));
         if (res.ok) {
           const data = await res.json();
           if (data.authenticated && data.user) {
@@ -67,17 +75,21 @@ export default function TeacherDirectKhorRorPage() {
               id: u.id || prev.id,
               name: u.name || prev.name,
               email: u.email || prev.email,
-              department: u.department ?? "",
+              department: u.department || "",
             }));
 
             // หากไม่มีข้อมูลแผนกวิชา ให้เด้งป๊อปอัปให้ระบุทันที
             if (!u.department || u.department.trim() === "" || u.department === "-" || u.department === "ยังไม่ได้ระบุ") {
               setIsMissingDeptOpen(true);
             }
+            return;
           }
         }
+        // Fallback สำหรับกรณีเปิดหน้านอกระบบล็อกอิน
+        setTeacher(mockTeacher);
       } catch (err) {
         console.warn("Could not load user session:", err);
+        setTeacher(mockTeacher);
       }
     }
 
