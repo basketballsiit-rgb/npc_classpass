@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Student } from "@/types";
+import { parseTbCourseSql } from "@/lib/courseParser";
+import { saveCoursesToCatalog } from "@/lib/courseCatalog";
 
 // Standard sample records from Nan Polytechnic College (ศธ.02 Std2014 Database)
 const defaultStudents: Student[] = [
@@ -100,6 +102,35 @@ export async function POST(req: NextRequest) {
     }
 
     const rawQuery = (query || "").trim();
+
+    // 1. ตรวจสอบว่าคำสั่ง SQL เป็นตาราง tb_course หรือข้อมูลรายวิชาจาก ศธ.02 หรือไม่
+    const isCourseTable =
+      /tb_course|`tb_course`|subjectCode|subjectNameTh/i.test(rawQuery) ||
+      Boolean(filename && /course|subject/i.test(filename));
+
+    if (isCourseTable) {
+      const parsedCourses = parseTbCourseSql(rawQuery);
+
+      if (parsedCourses.length > 0) {
+        // บันทึกลงในคลังรายวิชาของระบบ
+        const stats = saveCoursesToCatalog(parsedCourses);
+        const executionTime = Date.now() - startTime + 15;
+
+        return NextResponse.json({
+          success: true,
+          type: "courses",
+          message: `ประมวลผลและนำเข้าฐานข้อมูลรายวิชา (tb_course) จากระบบ ศธ.02 สำเร็จ`,
+          count: parsedCourses.length,
+          affectedRows: parsedCourses.length,
+          totalCatalog: stats.total,
+          added: stats.added,
+          updated: stats.updated,
+          executionTimeMs: executionTime,
+          courses: parsedCourses,
+        });
+      }
+    }
+
     const parsedStudents: Student[] = [];
 
     // Simple SQL parser for INSERT INTO statements if present
