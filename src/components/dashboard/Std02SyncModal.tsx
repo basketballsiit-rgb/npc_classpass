@@ -103,6 +103,15 @@ VALUES
   ('69301050063', 'นาย', 'นพดล', 'ปัญญาไว', 'ปวส.1', 'ช่างไฟฟ้ากำลัง', 'ปวส.1/1 ช่างไฟฟ้า'),
   ('69201050054', 'นาย', 'อัครพล', 'แก้วดี', 'ปวช.1', 'ช่างไฟฟ้ากำลัง', 'ปวช.1/2 ช่างไฟฟ้า');`,
   },
+  {
+    id: "tpl-4",
+    title: "4. นำเข้าตารางรายวิชาทั้งหมดจาก ศธ.02 (std2014.tb_course)",
+    desc: "รองรับคำสั่ง CREATE TABLE และ INSERT INTO tb_course เพื่อนำเข้ารหัสและชื่อวิชาทั้งหมด",
+    query: `-- นำเข้าโครงสร้างและข้อมูลรายวิชาจาก ศธ.02 (ตาราง tb_course)
+INSERT INTO \`tb_course\` (\`id\`, \`assessment\`, \`assessmentName\`, \`competency\`, \`createYear\`, \`credit\`, \`creditPractice\`, \`creditTheory\`, \`descNameTh\`, \`purpose\`, \`subjectCode\`, \`subjectNameEn\`, \`subjectNameTh\`, \`subjectStandardCode\`, \`subjectStandardName\`, \`subjectType\`, \`CurriculumYear\`, \`created_at\`, \`updated_at\`) VALUES
+(1, '', '', '1. แสดงความรู้เกี่ยวกับหลักการ...', '2562', '3', '2', '2', 'คำอธิบายรายวิชา...', 'จุดประสงค์รายวิชา...', '20000-1201', 'English for Communication', 'ภาษาอังกฤษเพื่อการสื่อสาร', '', '', 'หมวดวิชาสมรรถนะแกนกลาง', '2562', '2026-01-01 00:00:00', '2026-01-01 00:00:00'),
+(2, '', '', '1. แสดงความรู้เกี่ยวกับงานวัดละเอียด...', '2562', '2', '4', '1', 'คำอธิบายรายวิชา...', 'จุดประสงค์รายวิชา...', '20101-2009', 'Mechanical Precision Measurement', 'งานวัดละเอียดช่างยนต์', '', '', 'หมวดวิชาชีพเฉพาะ', '2562', '2026-01-01 00:00:00', '2026-01-01 00:00:00');`,
+  },
 ];
 
 export const Std02SyncModal: React.FC<Std02SyncModalProps> = ({
@@ -125,12 +134,18 @@ export const Std02SyncModal: React.FC<Std02SyncModalProps> = ({
   const [sqlQuery, setSqlQuery] = useState(SQL_TEMPLATES[0].query);
   const [selectedTemplate, setSelectedTemplate] = useState("tpl-1");
   const [uploadedSqlFileName, setUploadedSqlFileName] = useState<string | null>(null);
+  const [fullSqlContent, setFullSqlContent] = useState<string>("");
   const [sqlExecutionResult, setSqlExecutionResult] = useState<{
     success: boolean;
+    type?: "students" | "courses";
     message: string;
     affectedRows: number;
     executionTimeMs: number;
-    students: Student[];
+    students?: Student[];
+    courses?: any[];
+    totalCatalog?: number;
+    added?: number;
+    updated?: number;
   } | null>(null);
   const [copiedQuery, setCopiedQuery] = useState(false);
 
@@ -190,7 +205,14 @@ export const Std02SyncModal: React.FC<Std02SyncModalProps> = ({
       reader.onload = (event) => {
         const text = event.target?.result as string;
         if (text) {
-          setSqlQuery(text.slice(0, 1500));
+          setFullSqlContent(text);
+          // Show preview snippet in textarea (first 2500 chars)
+          const preview =
+            text.length > 2500
+              ? text.slice(0, 2500) +
+                `\n\n-- ... (ไฟล์ ${file.name} ขนาด ${Math.round(file.size / 1024)} KB มีทั้งหมด ${text.split("\n").length} บรรทัด กำลังเตรียมนำเข้า)`
+              : text;
+          setSqlQuery(preview);
         }
       };
       reader.readAsText(file);
@@ -203,12 +225,14 @@ export const Std02SyncModal: React.FC<Std02SyncModalProps> = ({
     setSqlExecutionResult(null);
     setSyncStatus(null);
 
+    const queryToSend = fullSqlContent || sqlQuery;
+
     try {
       const res = await fetch(getAssetPath("/api/std02/sql"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          query: sqlQuery,
+          query: queryToSend,
           filename: uploadedSqlFileName,
         }),
       });
@@ -218,14 +242,26 @@ export const Std02SyncModal: React.FC<Std02SyncModalProps> = ({
       if (data.success) {
         setSqlExecutionResult({
           success: true,
+          type: data.type || "students",
           message: data.message,
           affectedRows: data.affectedRows || data.count,
           executionTimeMs: data.executionTimeMs || 28,
           students: data.students || [],
+          courses: data.courses || [],
+          totalCatalog: data.totalCatalog,
+          added: data.added,
+          updated: data.updated,
         });
-        setSyncStatus(
-          `ประมวลผลคำสั่ง SQL สำเร็จ (ดึงข้อมูลนักศึกษาได้ ${data.count} คน จากตาราง ศธ.02)`
-        );
+
+        if (data.type === "courses") {
+          setSyncStatus(
+            `นำเข้าฐานข้อมูลรายวิชา (tb_course) สำเร็จ! พบ ${data.count} วิชา (รวมในคลังวิชาทั้งหมด ${data.totalCatalog || data.count} วิชา)`
+          );
+        } else {
+          setSyncStatus(
+            `ประมวลผลคำสั่ง SQL สำเร็จ (ดึงข้อมูลนักศึกษาได้ ${data.count} คน จากตาราง ศธ.02)`
+          );
+        }
       } else {
         setSqlExecutionResult({
           success: false,
@@ -233,6 +269,7 @@ export const Std02SyncModal: React.FC<Std02SyncModalProps> = ({
           affectedRows: 0,
           executionTimeMs: 0,
           students: [],
+          courses: [],
         });
       }
     } catch (err) {
@@ -242,15 +279,27 @@ export const Std02SyncModal: React.FC<Std02SyncModalProps> = ({
         affectedRows: 0,
         executionTimeMs: 0,
         students: [],
+        courses: [],
       });
     } finally {
       setIsSyncing(false);
     }
   };
 
-  // Confirm Import of SQL Students into ClassPass
+  // Confirm Import of SQL Students or Courses into ClassPass
   const handleConfirmSqlImport = () => {
-    if (!sqlExecutionResult || sqlExecutionResult.students.length === 0) return;
+    if (!sqlExecutionResult) return;
+
+    if (sqlExecutionResult.type === "courses" && sqlExecutionResult.courses) {
+      setSyncStatus(
+        `บันทึกคลังรายวิชา ศธ.02 จำนวน ${sqlExecutionResult.courses.length} วิชา เข้าสู่ระบบ ClassPass เรียบร้อยแล้ว พร้อมใช้งานในหน้าครูผู้สอน`
+      );
+      onSyncComplete(sqlExecutionResult.courses.length);
+      setTimeout(() => onClose(), 1200);
+      return;
+    }
+
+    if (!sqlExecutionResult.students || sqlExecutionResult.students.length === 0) return;
     onImportStudents?.(sqlExecutionResult.students);
     onSyncComplete(sqlExecutionResult.students.length);
     setSyncStatus(
