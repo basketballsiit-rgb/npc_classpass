@@ -134,10 +134,11 @@ export const Std02SyncModal: React.FC<Std02SyncModalProps> = ({
   const [sqlQuery, setSqlQuery] = useState(SQL_TEMPLATES[0].query);
   const [selectedTemplate, setSelectedTemplate] = useState("tpl-1");
   const [uploadedSqlFileName, setUploadedSqlFileName] = useState<string | null>(null);
+  const [selectedSqlFile, setSelectedSqlFile] = useState<File | null>(null);
   const [fullSqlContent, setFullSqlContent] = useState<string>("");
   const [sqlExecutionResult, setSqlExecutionResult] = useState<{
     success: boolean;
-    type?: "students" | "courses";
+    type?: "students" | "courses" | "error";
     message: string;
     affectedRows: number;
     executionTimeMs: number;
@@ -200,22 +201,29 @@ export const Std02SyncModal: React.FC<Std02SyncModalProps> = ({
   const handleSqlFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setSelectedSqlFile(file);
       setUploadedSqlFileName(file.name);
+      setSqlExecutionResult(null);
+      setSyncStatus(`เลือกไฟล์ "${file.name}" (${(file.size / (1024 * 1024)).toFixed(2)} MB) พร้อมนำเข้า`);
+
+      // Read small preview snippet (first 100KB) to prevent browser memory crash
+      const previewSlice = file.slice(0, 100 * 1024);
       const reader = new FileReader();
       reader.onload = (event) => {
-        const text = event.target?.result as string;
-        if (text) {
+        const text = (event.target?.result as string) || "";
+        const preview =
+          file.size > 100 * 1024
+            ? text.slice(0, 2500) +
+              `\n\n-- ... (ไฟล์ ${file.name} ขนาด ${(file.size / (1024 * 1024)).toFixed(2)} MB พร้อมนำเข้าผ่านระบบ Streaming Parser อัตโนมัติ)`
+            : text;
+        setSqlQuery(preview);
+        if (file.size <= 2 * 1024 * 1024) {
           setFullSqlContent(text);
-          // Show preview snippet in textarea (first 2500 chars)
-          const preview =
-            text.length > 2500
-              ? text.slice(0, 2500) +
-                `\n\n-- ... (ไฟล์ ${file.name} ขนาด ${Math.round(file.size / 1024)} KB มีทั้งหมด ${text.split("\n").length} บรรทัด กำลังเตรียมนำเข้า)`
-              : text;
-          setSqlQuery(preview);
+        } else {
+          setFullSqlContent(""); // Will be streamed directly via FormData
         }
       };
-      reader.readAsText(file);
+      reader.readAsText(previewSlice);
     }
   };
 
@@ -223,19 +231,34 @@ export const Std02SyncModal: React.FC<Std02SyncModalProps> = ({
   const handleExecuteSql = async () => {
     setIsSyncing(true);
     setSqlExecutionResult(null);
-    setSyncStatus(null);
-
-    const queryToSend = fullSqlContent || sqlQuery;
+    setSyncStatus(
+      selectedSqlFile
+        ? `กำลังประมวลผลไฟล์ SQL "${selectedSqlFile.name}" (${(selectedSqlFile.size / (1024 * 1024)).toFixed(2)} MB)...`
+        : "กำลังประมวลผลคำสั่ง SQL..."
+    );
 
     try {
-      const res = await fetch(getAssetPath("/api/std02/sql"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: queryToSend,
-          filename: uploadedSqlFileName,
-        }),
-      });
+      let res: Response;
+
+      if (selectedSqlFile) {
+        const formData = new FormData();
+        formData.append("file", selectedSqlFile);
+        formData.append("filename", selectedSqlFile.name);
+        res = await fetch(getAssetPath("/api/std02/sql"), {
+          method: "POST",
+          body: formData,
+        });
+      } else {
+        const queryToSend = fullSqlContent || sqlQuery;
+        res = await fetch(getAssetPath("/api/std02/sql"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: queryToSend,
+            filename: uploadedSqlFileName,
+          }),
+        });
+      }
 
       const data = await res.json();
 
@@ -255,32 +278,36 @@ export const Std02SyncModal: React.FC<Std02SyncModalProps> = ({
 
         if (data.type === "courses") {
           setSyncStatus(
-            `นำเข้าฐานข้อมูลรายวิชา (tb_course) สำเร็จ! พบ ${data.count} วิชา (รวมในคลังวิชาทั้งหมด ${data.totalCatalog || data.count} วิชา)`
+            `นำเข้าฐานข้อมูลรายวิชา (tb_course) สำเร็จ! พบ ${(data.count || 0).toLocaleString()} วิชา (รวมในคลังวิชาทั้งหมด ${(data.totalCatalog || data.count || 0).toLocaleString()} วิชา)`
           );
         } else {
           setSyncStatus(
-            `ประมวลผลคำสั่ง SQL สำเร็จ (ดึงข้อมูลนักศึกษาได้ ${data.count} คน จากตาราง ศธ.02)`
+            `ประมวลผลคำสั่ง SQL สำเร็จ (ดึงข้อมูลนักศึกษาได้ ${(data.count || 0).toLocaleString()} คน จากตาราง ศธ.02)`
           );
         }
       } else {
         setSqlExecutionResult({
           success: false,
-          message: data.error || "เกิดข้อผิดพลาดในการประมวลผล SQL",
+          type: "error",
+          message: data.error || data.details || "เกิดข้อผิดพลาดในการประมวลผล SQL",
           affectedRows: 0,
           executionTimeMs: 0,
           students: [],
           courses: [],
         });
+        setSyncStatus(`❌ ${data.error || "เกิดข้อผิดพลาดในการประมวลผล SQL"}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       setSqlExecutionResult({
         success: false,
-        message: "ไม่สามารถเชื่อมต่อ API ประมวลผลคำสั่ง SQL ได้",
+        type: "error",
+        message: err?.message || "ไม่สามารถเชื่อมต่อ API ประมวลผลคำสั่ง SQL ได้",
         affectedRows: 0,
         executionTimeMs: 0,
         students: [],
         courses: [],
       });
+      setSyncStatus("❌ ไม่สามารถเชื่อมต่อ API ประมวลผลคำสั่ง SQL ได้");
     } finally {
       setIsSyncing(false);
     }
