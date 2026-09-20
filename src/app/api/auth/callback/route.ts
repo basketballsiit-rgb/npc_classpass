@@ -6,6 +6,7 @@ import {
   setSession,
   UserSession,
 } from "@/lib/auth";
+import { getUserPermissionByEmail, recordUserLogin } from "@/lib/userPermissions";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -57,13 +58,30 @@ export async function GET(request: NextRequest) {
     const department = npcjobProfile.departmentName || "";
     const position = npcjobProfile.position || "ครูผู้สอน";
 
-    // กำหนดสิทธิ์: หาก username/email เป็น admin หรือในระบบ npcjob เป็น admin หรือเป็นผู้บริหาร
-    const isAdmin =
-      npcjobProfile.role === "admin" ||
-      username.toLowerCase().includes("admin") ||
-      email.startsWith("admin@") ||
-      Boolean(position && (position.includes("รองผู้อำนวยการ") || position.includes("ผู้อำนวยการ")));
-    const role: "TEACHER" | "ADMIN" = isAdmin ? "ADMIN" : "TEACHER";
+    // ตรวจสอบสิทธิ์จากระบบกำหนดสิทธิ์ผู้ใช้งาน (User Permissions)
+    const existingPerm = getUserPermissionByEmail(email);
+
+    let role: "TEACHER" | "ADMIN";
+    if (existingPerm && existingPerm.role) {
+      role = existingPerm.role;
+    } else {
+      // หากยังไม่มีการกำหนดสิทธิ์ไว้ ให้ตรวจสอบเกณฑ์พื้นฐาน
+      const isDefaultAdmin =
+        npcjobProfile.role === "admin" ||
+        username.toLowerCase().includes("admin") ||
+        email.startsWith("admin@") ||
+        Boolean(position && (position.includes("รองผู้อำนวยการ") || position.includes("ผู้อำนวยการ")));
+      role = isDefaultAdmin ? "ADMIN" : "TEACHER";
+    }
+
+    // บันทึก/อัปเดตประวัติการเข้าใช้งานและข้อมูลผู้ใช้ลงในระบบกำหนดสิทธิ์อัตโนมัติ
+    recordUserLogin({
+      email,
+      name: fullName,
+      department,
+      position,
+      defaultRole: role,
+    });
 
     // 5. บันทึกข้อมูล Session ลง Cookie
     const userSession: UserSession = {
