@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   GraduationCap,
   Calendar,
@@ -64,7 +64,28 @@ export interface ImportBatch {
 }
 
 export default function AdminDashboardPage() {
-  const [admin] = useState(mockAdmin);
+  const [admin, setAdmin] = useState(mockAdmin);
+
+  useEffect(() => {
+    async function loadAdminSession() {
+      try {
+        const res = await fetch(getAssetPath("/api/auth/me"));
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated && data.user) {
+            setAdmin({
+              name: data.user.name || "ผู้ดูแลระบบ",
+              email: data.user.email || "",
+              department: data.user.department || "งานวัดผลและประเมินผล",
+            });
+          }
+        }
+      } catch (e) {
+        console.warn("Could not load admin session:", e);
+      }
+    }
+    loadAdminSession();
+  }, []);
   const [currentTerm, setCurrentTerm] = useState<number>(1);
   const [currentAcademicYear, setCurrentAcademicYear] = useState<number>(2569);
   const [isTermModalOpen, setIsTermModalOpen] = useState(false);
