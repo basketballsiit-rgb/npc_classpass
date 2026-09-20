@@ -569,6 +569,21 @@ export default function AdminDashboardPage() {
               <Database className="h-4 w-4 text-[#8C78EA]" />
               <span>นำเข้าข้อมูล ศธ.02 (API / SQL)</span>
             </button>
+            <button
+              type="button"
+              onClick={() =>
+                setDeleteTarget({
+                  type: "reset_mock",
+                  title: "ยืนยันการคืนค่าข้อมูลตัวอย่าง",
+                  message: "คุณต้องการคืนค่าข้อมูลรายวิชาตัวอย่าง 3 รายการเดิม เข้าสู่ระบบหรือไม่?",
+                })
+              }
+              title="คืนค่าข้อมูลตัวอย่างเริ่มต้น (กรณีต้องการทดสอบระบบ)"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[#EAE3F5] bg-white px-3 py-1.5 text-[11px] font-bold text-[#857E9E] hover:text-[#7A63E5] hover:bg-[#F3EEFA] transition-all cursor-pointer shadow-xs"
+            >
+              <RefreshCw className="h-3 w-3" />
+              <span className="hidden sm:inline">คืนค่าข้อมูลตัวอย่าง</span>
+            </button>
             <span className="rounded-full bg-[#EFEAF6] text-[#7A63E5] border border-[#D8CCED] text-xs font-black px-3 py-1.5">
               ADMIN
             </span>
