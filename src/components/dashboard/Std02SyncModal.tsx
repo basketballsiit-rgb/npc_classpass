@@ -1185,28 +1185,44 @@ export const Std02SyncModal: React.FC<Std02SyncModalProps> = ({
             {/* SQL Execution Results & Preview Table */}
             {sqlExecutionResult && (
               <div className="space-y-3 pt-2 border-t border-[#F0EBF7]">
-                {sqlExecutionResult.type === "courses" ? (
+                {!sqlExecutionResult.success ? (
+                  <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-[#C02643] text-xs flex items-start gap-3 animate-in fade-in">
+                    <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="font-bold text-sm">ไม่สามารถนำเข้าข้อมูลจาก SQL Script ได้</p>
+                      <p className="text-xs text-red-600">
+                        {sqlExecutionResult.message}
+                      </p>
+                      <p className="text-[11px] text-[#857E9E]">
+                        คำแนะนำ: ตรวจสอบความถูกต้องของคำสั่ง SQL หรือตาราง tb_course จากระบบ ศธ.02
+                      </p>
+                    </div>
+                  </div>
+                ) : sqlExecutionResult.type === "courses" ? (
                   <>
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-[#FAF7FE] p-3 rounded-2xl border border-[#EAE3F5] text-xs">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <BookOpen className="h-4 w-4 text-[#8C78EA]" />
                         <span className="font-bold text-[#2B244D]">
                           คลังรายวิชาจากฐานข้อมูล ศธ.02 (tb_course):
                         </span>
                         <span className="rounded-full px-2.5 py-0.5 text-[10px] font-black bg-[#EDFBF5] text-[#1E7250]">
-                          {sqlExecutionResult.courses?.length || 0} รายวิชา
+                          {(sqlExecutionResult.affectedRows || sqlExecutionResult.courses?.length || 0).toLocaleString()} รายวิชา
                         </span>
                         {sqlExecutionResult.totalCatalog && (
                           <span className="rounded-full px-2 py-0.5 text-[10px] font-bold bg-purple-100 text-[#7A63E5]">
-                            รวมในระบบ {sqlExecutionResult.totalCatalog} วิชา
+                            รวมในระบบทั้งหมด {sqlExecutionResult.totalCatalog.toLocaleString()} วิชา
                           </span>
                         )}
+                        <span className="text-[10px] text-[#857E9E] ml-1">
+                          (แสดงตัวอย่าง 50 รายการแรก)
+                        </span>
                       </div>
 
                       <button
                         type="button"
                         onClick={handleConfirmSqlImport}
-                        className="btn-clay-purple px-4 py-1.5 text-xs font-bold"
+                        className="btn-clay-purple px-4 py-1.5 text-xs font-bold shrink-0"
                       >
                         ✓ เสร็จสิ้น (บันทึกเข้าคลังวิชาเรียบร้อย)
                       </button>
@@ -1252,7 +1268,7 @@ export const Std02SyncModal: React.FC<Std02SyncModalProps> = ({
                           ตัวอย่างข้อมูลนักเรียนที่ได้จาก SQL:
                         </span>
                         <span className="rounded-full px-2.5 py-0.5 text-[10px] font-black bg-[#EDFBF5] text-[#1E7250]">
-                          {sqlExecutionResult.students?.length || 0} รายการ
+                          {(sqlExecutionResult.students?.length || 0).toLocaleString()} รายการ
                         </span>
                       </div>
 
