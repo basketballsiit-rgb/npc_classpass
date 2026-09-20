@@ -107,8 +107,8 @@ export default function TeacherDirectKhorRorPage() {
   const [importedCourses, setImportedCourses] = useState<ParsedCourseBlock[]>([]);
 
   // Course State
-  const [courseCode, setCourseCode] = useState("20101-2009");
-  const [courseName, setCourseName] = useState("งานวัดละเอียดช่างยนต์");
+  const [courseCode, setCourseCode] = useState("");
+  const [courseName, setCourseName] = useState("");
 
   // Course Autocomplete State (จากคลัง ศธ.02)
   interface CourseSearchItem {
@@ -192,39 +192,41 @@ export default function TeacherDirectKhorRorPage() {
   // Search State for Student Registry
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Active Khor-Ror List for this Course (Initial sample matching the document!)
-  const [khorRorList, setKhorRorList] = useState<KhorRorEntry[]>([
-    {
-      id: "entry-1",
-      student: allCollegeStudents[0], // อรรถชัย หารกา (ปวช.1/1 ช่างยนต์)
-      remark: "ขาดเรียนเกิน 20%",
-      addedAt: "19 ก.ย. 2567",
-    },
-    {
-      id: "entry-2",
-      student: allCollegeStudents[1], // ธนกฤต มูลอ่อน (ปวช.1/1 ช่างยนต์)
-      remark: "ขาดเรียนเกิน 20%",
-      addedAt: "19 ก.ย. 2567",
-    },
-    {
-      id: "entry-3",
-      student: allCollegeStudents[2], // ธนวัตน์ แซ่ลี (ปวช.1/1 ช่างยนต์)
-      remark: "ขาดเรียนติดต่อกัน 4 ครั้ง",
-      addedAt: "19 ก.ย. 2567",
-    },
-    {
-      id: "entry-4",
-      student: allCollegeStudents[3], // ชยากร สุคำ (ปวช.1/1 ช่างยนต์)
-      remark: "เวลาเรียนไม่ถึง 80%",
-      addedAt: "19 ก.ย. 2567",
-    },
-    {
-      id: "entry-5",
-      student: allCollegeStudents[4], // ภาสุช ตระกลทรัพย์ดี (ปวช.1/1 บัญชี)
-      remark: "ขาดเรียนเกิน 20%",
-      addedAt: "19 ก.ย. 2567",
-    },
-  ]);
+  // Active Khor-Ror List for this Course
+  const [khorRorList, setKhorRorList] = useState<KhorRorEntry[]>([]);
+  const isLoadedRef = useRef(false);
+
+  // Load saved draft from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("npc_teacher_draft");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed.list)) setKhorRorList(parsed.list);
+        if (typeof parsed.code === "string") setCourseCode(parsed.code);
+        if (typeof parsed.name === "string") setCourseName(parsed.name);
+      }
+    } catch (e) {
+      console.warn("Could not load teacher draft:", e);
+    } finally {
+      isLoadedRef.current = true;
+    }
+  }, []);
+
+  // Save draft to localStorage
+  useEffect(() => {
+    if (!isLoadedRef.current) return;
+    try {
+      localStorage.setItem(
+        "npc_teacher_draft",
+        JSON.stringify({
+          list: khorRorList,
+          code: courseCode,
+          name: courseName,
+        })
+      );
+    } catch (e) {}
+  }, [khorRorList, courseCode, courseName]);
 
   // Modal States
   const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
@@ -666,7 +668,7 @@ export default function TeacherDirectKhorRorPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="พิมพ์เพื่อค้นหา เช่น '69201', 'อรรถชัย', 'พิชญา', 'ช่างยนต์', 'บัญชี'..."
+              placeholder="พิมพ์รหัสนักศึกษา 11 หลัก, ชื่อ-สกุล หรือกลุ่มเรียนเพื่อค้นหา..."
               className="w-full pl-11 pr-20 py-2.5 rounded-full border border-[#E2D6F5] bg-[#FAF7FE] text-xs font-bold text-[#2B244D] placeholder:text-[#A79FC2] focus:outline-none focus:border-[#8C78EA] focus:bg-white focus:ring-2 focus:ring-[#8C78EA]/20 transition-all shadow-xs"
             />
             {searchQuery && (
@@ -690,8 +692,30 @@ export default function TeacherDirectKhorRorPage() {
               </div>
 
               {searchResults.length === 0 ? (
-                <div className="p-4 text-center text-xs text-[#857E9E] bg-white rounded-xl border border-[#EAE3F5]">
-                  ไม่พบข้อมูลนักเรียนที่ตรงกับ "{searchQuery}"
+                <div className="p-4 text-center text-xs text-[#857E9E] bg-white rounded-xl border border-[#EAE3F5] space-y-2.5">
+                  <p>ไม่พบข้อมูลนักเรียนที่ตรงกับ &quot;{searchQuery}&quot; ในฐานข้อมูลปัจจุบัน</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const isId = /^\d+$/.test(searchQuery.trim());
+                      const newStudent: Student = {
+                        id: `manual-${Date.now()}`,
+                        studentId: isId ? searchQuery.trim() : `692${Math.floor(10000000 + Math.random() * 90000000)}`,
+                        prefix: "",
+                        firstName: isId ? "นักศึกษา" : searchQuery.trim(),
+                        lastName: "",
+                        level: "ปวช.1",
+                        department: teacher.department || "แผนกวิชา",
+                        classGroup: "1/1",
+                      };
+                      handleAddStudent(newStudent);
+                      setSearchQuery("");
+                    }}
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#8C78EA] text-white text-xs font-bold hover:bg-[#7A64DF] transition-colors cursor-pointer shadow-xs"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>เพิ่ม &quot;{searchQuery}&quot; เข้ารายชื่อ ขร. ทันที</span>
+                  </button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">

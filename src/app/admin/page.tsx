@@ -102,7 +102,7 @@ export default function AdminDashboardPage() {
   } | null>(null);
 
   const [submissions, setSubmissions] =
-    useState<KhorRorSubmissionSummary[]>(mockSubmissions);
+    useState<KhorRorSubmissionSummary[]>([]);
 
   // Load persistent submissions and batches from API & localStorage
   useEffect(() => {

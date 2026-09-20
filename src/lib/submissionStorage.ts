@@ -40,9 +40,9 @@ export function getSubmissionsData(): SubmissionsDataFile {
     console.warn("Could not read submissions.json:", err);
   }
 
-  // หากยังไม่มีไฟล์ ให้บันทึก mockSubmissions เริ่มต้นลงไฟล์ทันที
+  // หากยังไม่มีไฟล์ ให้บันทึก submissions เริ่มต้นเป็นอาร์เรย์ว่าง
   const initialData: SubmissionsDataFile = {
-    submissions: mockSubmissions,
+    submissions: [],
     batches: [],
     lastUpdated: new Date().toISOString(),
   };
@@ -184,8 +184,8 @@ export function importSubmissions(
 }
 
 /**
- * รีเซ็ตข้อมูลกลับสู่ชุดตั้งต้น (Mock Data)
+ * รีเซ็ตข้อมูล (ล้างข้อมูลทั้งหมด)
  */
 export function resetToMockData(): SubmissionsDataFile {
-  return saveSubmissionsData(mockSubmissions, []);
+  return saveSubmissionsData([], []);
 }
