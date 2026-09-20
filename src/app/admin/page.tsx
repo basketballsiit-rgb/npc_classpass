@@ -818,102 +818,142 @@ export default function AdminDashboardPage() {
         {/* TAB 1: Submissions Inbox */}
         {activeTab === "inbox" && (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {submissions.map((sub) => {
-                const isPending = sub.status === "PENDING";
-                const isExcelImported = sub.id.startsWith("sub-excel-");
-                return (
-                  <div
-                    key={sub.id}
-                    className="clay-card p-5 flex flex-col justify-between relative group"
+            {submissions.length === 0 ? (
+              <div className="clay-card p-12 text-center space-y-4">
+                <div className="squircle-purple h-16 w-16 mx-auto flex items-center justify-center">
+                  <CheckCircle2 className="h-8 w-8 text-white" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-base font-black text-[#2B244D]">
+                    ยังไม่มีรายการยื่นขอประกาศผล ขร. ในระบบ
+                  </h3>
+                  <p className="text-xs text-[#857E9E] max-w-md mx-auto">
+                    คุณได้ลบรายการทั้งหมดออกจากฐานข้อมูลเรียบร้อยแล้ว หากต้องการนำเข้าข้อมูลใหม่ สามารถใช้เมนู &ldquo;นำเข้าข้อมูล ศธ.02 (API / SQL)&rdquo; หรือกดคืนค่าข้อมูลตัวอย่างเริ่มต้นได้
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsStd02ModalOpen(true)}
+                    className="btn-clay-purple px-5 py-2 text-xs font-bold flex items-center gap-2"
                   >
-                    <div>
-                      {/* Status, Tag, and Memo Number */}
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono text-xs font-bold text-[#857E9E]">
-                            {sub.memoNumber}
-                          </span>
-                          {isExcelImported && (
-                            <span className="text-[9px] font-black px-1.5 py-0.2 rounded-md bg-purple-50 text-[#7A63E5] border border-purple-200">
-                              Excel
+                    <Database className="h-4 w-4" />
+                    <span>นำเข้าข้อมูล (Excel / SQL)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDeleteTarget({
+                        type: "reset_mock",
+                        title: "ยืนยันการคืนค่าข้อมูลตัวอย่าง",
+                        message: "คุณต้องการคืนค่าข้อมูลรายวิชาตัวอย่าง 3 รายการเดิม (ไฟฟ้าในอาคาร, ภาษาไทย, อิเล็กทรอนิกส์) เข้าสู่ระบบหรือไม่?",
+                      })
+                    }
+                    className="px-4 py-2 rounded-full border border-[#D8CCED] bg-white text-[#7A63E5] hover:bg-[#F3EEFA] text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    <span>คืนค่าข้อมูลตัวอย่างเริ่มต้น</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {submissions.map((sub) => {
+                  const isPending = sub.status === "PENDING";
+                  const isExcelImported = sub.id.startsWith("sub-excel-");
+                  return (
+                    <div
+                      key={sub.id}
+                      className="clay-card p-5 flex flex-col justify-between relative group"
+                    >
+                      <div>
+                        {/* Status, Tag, and Memo Number */}
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-xs font-bold text-[#857E9E]">
+                              {sub.memoNumber}
+                            </span>
+                            {isExcelImported && (
+                              <span className="text-[9px] font-black px-1.5 py-0.2 rounded-md bg-purple-50 text-[#7A63E5] border border-purple-200">
+                                Excel
+                              </span>
+                            )}
+                          </div>
+                          {isPending ? (
+                            <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-[#FFF9E6] text-[#FFA800] border border-[#FFE899]">
+                              รอตรวจสอบ
+                            </span>
+                          ) : (
+                            <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-[#EDFBF5] text-[#52C79E] border border-[#B7EED8]">
+                              อนุมัติแล้ว
                             </span>
                           )}
                         </div>
-                        {isPending ? (
-                          <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-[#FFF8F0] text-[#FFAB5E] border border-[#FFE0C2]">
-                            รอตรวจสอบ
+
+                        {/* Course Title */}
+                        <div className="space-y-1">
+                          <span className="text-xs font-mono font-bold text-[#7A63E5] bg-[#F3EEFA] px-2.5 py-0.5 rounded-full">
+                            {sub.courseCode}
                           </span>
-                        ) : (
-                          <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-[#EDFBF5] text-[#52C79E] border border-[#B7EED8]">
-                            อนุมัติแล้ว
+                          <h3 className="font-black text-base text-[#2B244D] pt-1.5 line-clamp-1">
+                            {cleanThaiText(sub.courseName)}
+                          </h3>
+                          <p className="text-xs text-[#857E9E]">
+                            ครูผู้สอน: <span className="font-bold text-[#2B244D]">{cleanThaiText(sub.teacherName)}</span> ({cleanThaiText(sub.teacherDepartment)})
+                          </p>
+                        </div>
+
+                        {/* Student Count & Time */}
+                        <div className="mt-4 p-3 rounded-2xl bg-[#FAF7FE] border border-[#EAE3F5] flex items-center justify-between text-xs">
+                          <span className="text-[#857E9E] font-medium">
+                            ผู้เรียนที่เสนอ ขร. :
                           </span>
-                        )}
+                          <span className="font-black text-[#FF6885] text-sm">
+                            {sub.studentCount} คน
+                          </span>
+                        </div>
                       </div>
 
-                      {/* Course Title */}
-                      <div className="space-y-1">
-                        <span className="text-xs font-mono font-bold text-[#7A63E5] bg-[#F3EEFA] px-2.5 py-0.5 rounded-full">
-                          {sub.courseCode}
-                        </span>
-                        <h3 className="font-black text-base text-[#2B244D] pt-1.5 line-clamp-1">
-                          {cleanThaiText(sub.courseName)}
-                        </h3>
-                        <p className="text-xs text-[#857E9E]">
-                          ครูผู้สอน: <span className="font-bold text-[#2B244D]">{cleanThaiText(sub.teacherName)}</span> ({cleanThaiText(sub.teacherDepartment)})
-                        </p>
-                      </div>
+                      {/* Action Buttons */}
+                      <div className="mt-5 pt-3 border-t border-[#F0EBF7] flex items-center gap-2">
+                        <button
+                          type="button"
+                          className={`flex-1 py-2 px-3 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                            isPending
+                              ? "btn-clay-purple"
+                              : "border border-[#D8CCED] bg-white text-[#7A63E5] hover:bg-[#F3EEFA]"
+                          }`}
+                          onClick={() => {
+                            setSelectedSubmission(sub);
+                            setIsReviewModalOpen(true);
+                          }}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          <span>{isPending ? "ตรวจสอบ & อนุมัติ" : "ดูรายละเอียด"}</span>
+                        </button>
 
-                      {/* Student Count & Time */}
-                      <div className="mt-4 p-3 rounded-2xl bg-[#FAF7FE] border border-[#EAE3F5] flex items-center justify-between text-xs">
-                        <span className="text-[#857E9E] font-medium">
-                          ผู้เรียนที่เสนอ ขร. :
-                        </span>
-                        <span className="font-black text-[#FF6885] text-sm">
-                          {sub.studentCount} คน
-                        </span>
+                        {/* Delete Submission Button (User Requested Feature) */}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDeleteTarget({
+                              type: "submission",
+                              id: sub.id,
+                              title: "ยืนยันการลบรายการวิชาออกจากระบบ",
+                              message: `ต้องการลบรายการวิชา "${sub.courseCode} ${sub.courseName}" (ครูผู้สอน: ${sub.teacherName}) พร้อมนักศึกษาติด ขร. ทั้งหมดในวิชานี้ (${sub.studentCount} คน) ออกจากฐานข้อมูลทั้งหมดหรือไม่?`,
+                            })
+                          }
+                          title="ลบรายการวิชานี้ออกจากฐานข้อมูล"
+                          className="p-2 rounded-full border border-[#FFCCD5] bg-white text-[#FF4D71] hover:bg-[#FFF0F3] transition-all cursor-pointer shadow-xs shrink-0"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </div>
-
-                    {/* Action Buttons */}
-                    <div className="mt-5 pt-3 border-t border-[#F0EBF7] flex items-center gap-2">
-                      <button
-                        type="button"
-                        className={`flex-1 py-2 px-3 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                          isPending
-                            ? "btn-clay-purple"
-                            : "border border-[#D8CCED] bg-white text-[#7A63E5] hover:bg-[#F3EEFA]"
-                        }`}
-                        onClick={() => {
-                          setSelectedSubmission(sub);
-                          setIsReviewModalOpen(true);
-                        }}
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        <span>{isPending ? "ตรวจสอบ & อนุมัติ" : "ดูรายละเอียด"}</span>
-                      </button>
-
-                      {/* Delete Submission Button (User Requested Feature) */}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setDeleteTarget({
-                            type: "submission",
-                            id: sub.id,
-                            title: "ยืนยันการลบรายการวิชาออกจากระบบ",
-                            message: `ต้องการลบรายการวิชา "${sub.courseCode} ${sub.courseName}" (ครูผู้สอน: ${sub.teacherName}) พร้อมนักศึกษาติด ขร. ทั้งหมดในวิชานี้ (${sub.studentCount} คน) ออกจากฐานข้อมูลทั้งหมดหรือไม่?`,
-                          })
-                        }
-                        title="ลบรายการวิชานี้ออกจากฐานข้อมูล"
-                        className="p-2 rounded-full border border-[#FFCCD5] bg-white text-[#FF4D71] hover:bg-[#FFF0F3] transition-all cursor-pointer shadow-xs shrink-0"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
