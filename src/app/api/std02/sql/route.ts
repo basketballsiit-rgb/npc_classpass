@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import path from "path";
+import fs from "fs";
 import { Student } from "@/types";
-import { parseTbCourseSql } from "@/lib/courseParser";
+import {
+  parseTbCourseSql,
+  parseTbCourseStream,
+  parseTbCourseFromFile,
+} from "@/lib/courseParser";
 import { saveCoursesToCatalog } from "@/lib/courseCatalog";
 
 // Standard sample records from Nan Polytechnic College (ศธ.02 Std2014 Database)
@@ -89,12 +95,27 @@ const defaultStudents: Student[] = [
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { query, filename } = body;
-
     const startTime = Date.now();
+    const contentType = req.headers.get("content-type") || "";
 
-    if (!query && !filename) {
+    let query = "";
+    let filename = "";
+    let uploadedFile: File | null = null;
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await req.formData();
+      uploadedFile = formData.get("file") as File | null;
+      filename =
+        (formData.get("filename") as string) ||
+        (uploadedFile ? uploadedFile.name : "");
+      query = (formData.get("query") as string) || "";
+    } else {
+      const body = await req.json().catch(() => ({}));
+      query = body.query || "";
+      filename = body.filename || "";
+    }
+
+    if (!query && !filename && !uploadedFile) {
       return NextResponse.json(
         { error: "กรุณาระบุคำสั่ง SQL หรืออัปโหลดไฟล์ Script SQL" },
         { status: 400 }
@@ -103,12 +124,64 @@ export async function POST(req: NextRequest) {
 
     const rawQuery = (query || "").trim();
 
-    // 1. ตรวจสอบว่าคำสั่ง SQL เป็นตาราง tb_course หรือข้อมูลรายวิชาจาก ศธ.02 หรือไม่
+    // 1. ตรวจสอบว่ามีไฟล์อัปโหลดเข้ามาผ่าน FormData หรือไม่ (เช่น tb_course.sql 90MB+)
+    if (uploadedFile) {
+      const stream = uploadedFile.stream();
+      const parsedCourses = await parseTbCourseStream(stream as any);
+
+      if (parsedCourses.length > 0) {
+        const stats = saveCoursesToCatalog(parsedCourses);
+        const executionTime = Date.now() - startTime;
+
+        return NextResponse.json({
+          success: true,
+          type: "courses",
+          message: `ประมวลผลและนำเข้าฐานข้อมูลรายวิชา (tb_course) จากไฟล์ ${filename || uploadedFile.name} สำเร็จ (${parsedCourses.length.toLocaleString()} รายวิชา)`,
+          count: parsedCourses.length,
+          affectedRows: parsedCourses.length,
+          totalCatalog: stats.total,
+          added: stats.added,
+          updated: stats.updated,
+          executionTimeMs: executionTime,
+          courses: parsedCourses.slice(0, 50),
+        });
+      }
+    }
+
+    // 2. ตรวจสอบว่ามีไฟล์บน Server ใน Root Directory หรือไม่ (เช่น tb_course.sql ในโฟลเดอร์โปรเจกต์)
+    if (filename) {
+      const safeBasename = path.basename(filename);
+      const localFilePath = path.join(process.cwd(), safeBasename);
+
+      if (fs.existsSync(localFilePath) && /course|subject/i.test(safeBasename)) {
+        const parsedCourses = await parseTbCourseFromFile(localFilePath);
+
+        if (parsedCourses.length > 0) {
+          const stats = saveCoursesToCatalog(parsedCourses);
+          const executionTime = Date.now() - startTime;
+
+          return NextResponse.json({
+            success: true,
+            type: "courses",
+            message: `ประมวลผลและนำเข้าฐานข้อมูลรายวิชา (tb_course) จากไฟล์ ${safeBasename} สำเร็จ (${parsedCourses.length.toLocaleString()} รายวิชา)`,
+            count: parsedCourses.length,
+            affectedRows: parsedCourses.length,
+            totalCatalog: stats.total,
+            added: stats.added,
+            updated: stats.updated,
+            executionTimeMs: executionTime,
+            courses: parsedCourses.slice(0, 50),
+          });
+        }
+      }
+    }
+
+    // 3. ตรวจสอบว่าคำสั่ง SQL เป็นตาราง tb_course หรือข้อมูลรายวิชาจาก ศธ.02 หรือไม่ (กรณีวางข้อความใน Textarea)
     const isCourseTable =
       /tb_course|`tb_course`|subjectCode|subjectNameTh/i.test(rawQuery) ||
       Boolean(filename && /course|subject/i.test(filename));
 
-    if (isCourseTable) {
+    if (isCourseTable && rawQuery) {
       const parsedCourses = parseTbCourseSql(rawQuery);
 
       if (parsedCourses.length > 0) {
@@ -119,14 +192,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           success: true,
           type: "courses",
-          message: `ประมวลผลและนำเข้าฐานข้อมูลรายวิชา (tb_course) จากระบบ ศธ.02 สำเร็จ`,
+          message: `ประมวลผลและนำเข้าฐานข้อมูลรายวิชา (tb_course) จากระบบ ศธ.02 สำเร็จ (${parsedCourses.length.toLocaleString()} รายวิชา)`,
           count: parsedCourses.length,
           affectedRows: parsedCourses.length,
           totalCatalog: stats.total,
           added: stats.added,
           updated: stats.updated,
           executionTimeMs: executionTime,
-          courses: parsedCourses,
+          courses: parsedCourses.slice(0, 50),
         });
       }
     }

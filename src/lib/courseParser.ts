@@ -1,3 +1,7 @@
+import fs from "fs";
+import readline from "readline";
+import { Readable } from "stream";
+
 /**
  * SQL Course Parser สำหรับตาราง tb_course จากระบบ ศธ.02 (สอศ.)
  */
@@ -64,7 +68,7 @@ export function parseTbCourseSql(sqlText: string): ParsedTbCourse[] {
       ),
       curriculumYear: columns.findIndex(
         (c) =>
-          c.toLowerCase() === "curriculumyear" ||
+          c.toLowerCase().includes("curriculu") ||
           c.toLowerCase() === "createyear"
       ),
       subjectType: columns.findIndex(
@@ -226,4 +230,183 @@ function cleanSqlValue(val: string): string {
   if (trimmed.toUpperCase() === "NULL") return "";
   // ถอด quotes ด้านนอกออก
   return trimmed.replace(/^['"]|['"]$/g, "");
+}
+
+/**
+ * สตรีมอ่านและ Parse ไฟล์ SQL ขนาดใหญ่ (เช่น tb_course.sql 90MB+) โดยไม่กิน RAM
+ */
+export async function parseTbCourseStream(
+  stream: NodeJS.ReadableStream | ReadableStream
+): Promise<ParsedTbCourse[]> {
+  const nodeStream: NodeJS.ReadableStream =
+    typeof (stream as any)[Symbol.asyncIterator] === "function" && !(stream as any).on
+      ? (Readable.fromWeb as any)(stream)
+      : (stream as NodeJS.ReadableStream);
+
+  return new Promise((resolve, reject) => {
+    const rl = readline.createInterface({
+      input: nodeStream,
+      crlfDelay: Infinity,
+    });
+
+    let insertColumns: string[] | null = null;
+    let currentInsert = "";
+    const courses: ParsedTbCourse[] = [];
+    const seen = new Set<string>();
+
+    rl.on("line", (line: string) => {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("INSERT INTO `tb_course`") || trimmed.startsWith("INSERT INTO tb_course")) {
+        const colMatch = trimmed.match(/INSERT\s+INTO\s+[`'"]?tb_course[`'"]?\s*\(([^)]+)\)/i);
+        if (colMatch) {
+          insertColumns = colMatch[1].split(",").map((c) => c.trim().replace(/[`'"]/g, ""));
+        }
+        currentInsert = trimmed;
+      } else if (currentInsert) {
+        currentInsert += " " + trimmed;
+      }
+
+      if (currentInsert && trimmed.endsWith(";")) {
+        const valIdx = currentInsert.indexOf("VALUES");
+        if (valIdx !== -1 && insertColumns) {
+          const vals = currentInsert.slice(valIdx + 6).trim().replace(/;$/, "");
+          extractRowsFromValuesBlock(vals, insertColumns, courses, seen);
+        }
+        currentInsert = "";
+      }
+    });
+
+    rl.on("close", () => {
+      resolve(courses);
+    });
+
+    rl.on("error", (err) => {
+      reject(err);
+    });
+  });
+}
+
+/**
+ * สตรีมอ่านและ Parse ไฟล์ SQL จาก Path บนเครื่อง
+ */
+export async function parseTbCourseFromFile(filePath: string): Promise<ParsedTbCourse[]> {
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`File not found: ${filePath}`);
+  }
+  const stream = fs.createReadStream(filePath, { encoding: "utf8" });
+  return parseTbCourseStream(stream);
+}
+
+function extractRowsFromValuesBlock(
+  block: string,
+  cols: string[],
+  courses: ParsedTbCourse[],
+  seen: Set<string>
+) {
+  const colIdx = {
+    code: cols.findIndex((c) => c.toLowerCase() === "subjectcode"),
+    nameTh: cols.findIndex((c) => c.toLowerCase() === "subjectnameth"),
+    nameEn: cols.findIndex((c) => c.toLowerCase() === "subjectnameen"),
+    credit: cols.findIndex((c) => c.toLowerCase() === "credit"),
+    theory: cols.findIndex((c) => c.toLowerCase() === "credittheory"),
+    practice: cols.findIndex((c) => c.toLowerCase() === "creditpractice"),
+    year: cols.findIndex((c) => c.toLowerCase().includes("curriculu") || c.toLowerCase() === "createyear"),
+    type: cols.findIndex((c) => c.toLowerCase() === "subjecttype"),
+    competency: cols.findIndex((c) => c.toLowerCase() === "competency"),
+    purpose: cols.findIndex((c) => c.toLowerCase() === "purpose"),
+  };
+
+  let inString = false;
+  let quoteChar = "";
+  let isEscaped = false;
+  let depth = 0;
+  let currentTuple: string[] = [];
+  let currentField = "";
+
+  for (let i = 0; i < block.length; i++) {
+    const char = block[i];
+
+    if (isEscaped) {
+      currentField += char;
+      isEscaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      isEscaped = true;
+      continue;
+    }
+
+    if (inString) {
+      if (char === quoteChar) {
+        if (block[i + 1] === quoteChar) {
+          currentField += quoteChar;
+          i++;
+        } else {
+          inString = false;
+        }
+      } else {
+        currentField += char;
+      }
+      continue;
+    }
+
+    if (char === "'" || char === '"') {
+      inString = true;
+      quoteChar = char;
+      continue;
+    }
+
+    if (char === "(") {
+      depth++;
+      if (depth === 1) {
+        currentTuple = [];
+        currentField = "";
+      }
+      continue;
+    }
+
+    if (char === ")") {
+      depth--;
+      if (depth === 0) {
+        currentTuple.push(currentField.trim());
+        currentField = "";
+
+        const code = (currentTuple[colIdx.code] || "").trim();
+        const name = (currentTuple[colIdx.nameTh] || "").trim();
+        if (code || name) {
+          const key = `${code}-${name}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            const credits = parseFloat(currentTuple[colIdx.credit]) || 0;
+            const theory = parseFloat(currentTuple[colIdx.theory]) || 0;
+            const practice = parseFloat(currentTuple[colIdx.practice]) || 0;
+            courses.push({
+              id: `crs-${courses.length + 1}`,
+              code,
+              name,
+              nameEn: colIdx.nameEn !== -1 ? currentTuple[colIdx.nameEn] || "" : undefined,
+              credits,
+              theory,
+              practice,
+              totalHours: (theory + practice) * 18 || credits * 18 || 36,
+              curriculumYear: colIdx.year !== -1 ? currentTuple[colIdx.year] || "" : undefined,
+              subjectType: colIdx.type !== -1 ? currentTuple[colIdx.type] || "" : undefined,
+            });
+          }
+        }
+      }
+      continue;
+    }
+
+    if (char === "," && depth === 1) {
+      currentTuple.push(currentField.trim());
+      currentField = "";
+      continue;
+    }
+
+    if (depth > 0) {
+      currentField += char;
+    }
+  }
 }
