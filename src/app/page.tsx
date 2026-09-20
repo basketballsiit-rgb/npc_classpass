@@ -3,12 +3,6 @@
 import React, { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  GraduationCap,
-  Mail,
-  Lock,
-  Eye,
-  EyeOff,
-  ArrowRight,
   ShieldCheck,
   CheckCircle2,
   Sparkles,
@@ -18,34 +12,14 @@ import {
   Flame,
   Info,
   AlertCircle,
+  GraduationCap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getAssetPath } from "@/lib/utils";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [role, setRole] = useState<"TEACHER" | "ADMIN">("TEACHER");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-
-    // Simulate authentication delay
-    setTimeout(() => {
-      setIsLoading(false);
-      if (role === "TEACHER") {
-        router.push("/teacher");
-      } else {
-        router.push("/admin");
-      }
-    }, 600);
-  };
 
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center p-4 sm:p-6 lg:p-8 overflow-hidden bg-gradient-to-br from-[#EFE7FA] via-[#F8F5FD] to-[#E9DEFA]">
