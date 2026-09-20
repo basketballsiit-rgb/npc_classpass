@@ -94,33 +94,51 @@ export async function getKeycloakUserInfo(accessToken: string) {
 
 /**
  * ดึงข้อมูลตำแหน่งและแผนกวิชาจากระบบ npcjob API ของวิทยาลัย
+ * รองรับทั้ง username (เช่น nipon) และ email (เช่น nipon@npc.ac.th)
  */
-export async function fetchNpcjobProfile(username: string): Promise<{
+export async function fetchNpcjobProfile(
+  username: string,
+  email?: string
+): Promise<{
   displayName?: string;
   departmentName?: string;
   position?: string;
+  role?: string;
 }> {
-  try {
-    const url = new URL(KEYCLOAK_CONFIG.npcjobApiUrl);
-    url.searchParams.set("username", username);
-    url.searchParams.set("token", KEYCLOAK_CONFIG.npcjobApiToken);
+  const identifiers = [username, email].filter(Boolean) as string[];
+  if (username && !username.includes("@")) {
+    identifiers.push(`${username}@npc.ac.th`);
+  }
+  if (email && email.includes("@")) {
+    identifiers.push(email.split("@")[0]);
+  }
 
-    const res = await fetch(url.toString(), {
-      next: { revalidate: 300 }, // Cache 5 minutes
-    });
+  const uniqueIdentifiers = Array.from(new Set(identifiers));
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success && data.user) {
-        return {
-          displayName: data.user.display_name,
-          departmentName: data.user.department_name,
-          position: data.user.position,
-        };
+  for (const id of uniqueIdentifiers) {
+    try {
+      const url = new URL(KEYCLOAK_CONFIG.npcjobApiUrl);
+      url.searchParams.set("username", id);
+      url.searchParams.set("token", KEYCLOAK_CONFIG.npcjobApiToken);
+
+      const res = await fetch(url.toString(), {
+        cache: "no-store",
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.user) {
+          return {
+            displayName: data.user.display_name,
+            departmentName: data.user.department_name,
+            position: data.user.position,
+            role: data.user.role,
+          };
+        }
       }
+    } catch (err) {
+      console.warn("[NPCJOB API] Could not fetch profile for:", id, err);
     }
-  } catch (err) {
-    console.warn("[NPCJOB API] Could not fetch profile for:", username, err);
   }
 
   return {};

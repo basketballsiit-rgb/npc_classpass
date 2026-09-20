@@ -58,20 +58,30 @@ export const Header: React.FC<HeaderProps> = ({ teacher, onOpenTermSetting }) =>
 
         {/* Right: Teacher Profile & Role Badge */}
         <div className="flex items-center gap-3">
+          {/* Switch to Admin Mode if user is Admin */}
+          {teacher.role === "ADMIN" && (
+            <Link
+              href="/admin"
+              className="text-xs text-white hover:bg-white/20 font-bold hidden lg:inline-block border border-white/25 rounded-full px-3 py-1 transition-colors"
+            >
+              ไปหน้าระบบงานวัดผล (Admin) &rarr;
+            </Link>
+          )}
+
           <div className="hidden sm:flex flex-col text-right">
             <div className="flex items-center justify-end gap-1.5">
               <span className="text-sm font-black text-white">
                 {teacher.name}
               </span>
-              <span className="text-[10px] font-black py-0.5 px-2 rounded-full bg-white/25 text-white border border-white/30">
-                ครูผู้สอน
+              <span className="text-[10px] font-black py-0.5 px-2 rounded-full bg-white/25 text-white border border-white/30 max-w-[150px] truncate" title={teacher.position || (teacher.role === "ADMIN" ? "ผู้ดูแลระบบ" : "ครูผู้สอน")}>
+                {teacher.position?.includes("รองผู้อำนวยการ") ? "รอง ผอ." : (teacher.position || (teacher.role === "ADMIN" ? "ผู้ดูแลระบบ" : "ครูผู้สอน"))}
               </span>
             </div>
             <span className="text-xs text-purple-100">{teacher.department}</span>
           </div>
 
           <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-[#7A63E5] font-black text-sm shadow-[0_4px_10px_rgba(0,0,0,0.12)] ring-2 ring-white/60">
-            {teacher.name.charAt(2) || "ครู"}
+            {teacher.name.replace(/^(นาย|นางสาว|นาง|อ\.|อาจารย์|ครู)\s*/, "").charAt(0) || "ค"}
           </div>
 
           {/* Logout Button */}

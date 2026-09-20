@@ -75,6 +75,8 @@ export default function TeacherDirectKhorRorPage() {
               name: u.name || prev.name,
               email: u.email || prev.email,
               department: u.department || "",
+              position: u.position,
+              role: u.role || "TEACHER",
             }));
 
             // หากไม่มีข้อมูลแผนกวิชา ให้เด้งป๊อปอัปให้ระบุทันที
@@ -515,7 +517,7 @@ export default function TeacherDirectKhorRorPage() {
               </div>
               <div className="flex items-center gap-2.5 h-[42px] px-3.5 rounded-2xl border border-[#E8DEF8] bg-[#FAF7FE] text-[#2B244D] font-bold text-sm shadow-xs select-none">
                 <div className="squircle-purple h-6 w-6 text-[11px] shrink-0">
-                  {teacher.name.charAt(2) || "ค"}
+                  {teacher.name.replace(/^(นาย|นางสาว|นาง|อ\.|อาจารย์|ครู)\s*/, "").charAt(0) || "ค"}
                 </div>
                 <span className="truncate">{teacher.name}</span>
                 <span className="ml-auto text-[10px] font-black py-0.5 px-2 rounded-full bg-[#EFEAF6] text-[#7A63E5] shrink-0">

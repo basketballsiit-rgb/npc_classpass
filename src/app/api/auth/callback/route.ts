@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 4. ดึงข้อมูลโปรไฟล์เพิ่มเติม (แผนกวิชา, ตำแหน่ง) จาก npcjob API ของวิทยาลัย
-    const npcjobProfile = await fetchNpcjobProfile(username);
+    const npcjobProfile = await fetchNpcjobProfile(username, email);
 
     const firstName = userInfo.given_name || userInfo.firstName || "";
     const lastName = userInfo.family_name || userInfo.lastName || "";
@@ -53,12 +53,16 @@ export async function GET(request: NextRequest) {
       fullName = email.split("@")[0];
     }
 
-    // แผนกวิชาที่ได้จากระบบกลาง
+    // แผนกวิชาที่ได้จากระบบกลาง (เช่น ฝ่ายยุทธศาสตร์และแผนงาน, ฝ่ายวิชาการ)
     const department = npcjobProfile.departmentName || "";
     const position = npcjobProfile.position || "ครูผู้สอน";
 
-    // กำหนดสิทธิ์: หาก username หรือ email มีคำว่า admin ให้เป็น ADMIN นอกนั้นเป็น TEACHER
-    const isAdmin = username.toLowerCase().includes("admin") || email.startsWith("admin@");
+    // กำหนดสิทธิ์: หาก username/email เป็น admin หรือในระบบ npcjob เป็น admin หรือเป็นผู้บริหาร
+    const isAdmin =
+      npcjobProfile.role === "admin" ||
+      username.toLowerCase().includes("admin") ||
+      email.startsWith("admin@") ||
+      Boolean(position && (position.includes("รองผู้อำนวยการ") || position.includes("ผู้อำนวยการ")));
     const role: "TEACHER" | "ADMIN" = isAdmin ? "ADMIN" : "TEACHER";
 
     // 5. บันทึกข้อมูล Session ลง Cookie

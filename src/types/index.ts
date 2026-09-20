@@ -57,6 +57,7 @@ export interface TeacherProfile {
   name: string;
   role: 'TEACHER' | 'ADMIN';
   department: string;
+  position?: string;
   email: string;
   academicYear: number;
   term: number;
@@ -67,6 +68,7 @@ export interface AdminProfile {
   name: string;
   role: 'ADMIN';
   department: string;
+  position?: string;
   email: string;
   academicYear: number;
   term: number;
