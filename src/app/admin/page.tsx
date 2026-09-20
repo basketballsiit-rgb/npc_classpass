@@ -44,6 +44,7 @@ import { Modal } from "@/components/ui/dialog";
 import { OfficialMemoModal } from "@/components/dashboard/OfficialMemoModal";
 import { Std02SyncModal } from "@/components/dashboard/Std02SyncModal";
 import { TermYearSettingModal } from "@/components/dashboard/TermYearSettingModal";
+import { UserPermissionsModal } from "@/components/dashboard/UserPermissionsModal";
 import {
   mockAdmin,
   mockTeacher,
@@ -66,6 +67,7 @@ export interface ImportBatch {
 
 export default function AdminDashboardPage() {
   const [admin, setAdmin] = useState(mockAdmin);
+  const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
 
   useEffect(() => {
     async function loadAdminSession() {
@@ -553,6 +555,15 @@ export default function AdminDashboardPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsPermissionsModalOpen(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-indigo-300 bg-indigo-50/80 px-4 py-2 text-xs font-bold text-indigo-900 shadow-sm hover:bg-indigo-100 transition-all cursor-pointer"
+            >
+              <Users className="h-4 w-4 text-indigo-600" />
+              <span>👥 กำหนดสิทธิ์ผู้ใช้งาน</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setIsStd02ModalOpen(true)}
@@ -1549,6 +1560,12 @@ export default function AdminDashboardPage() {
           </div>
         </Modal>
       )}
+
+      {/* User Permissions Management Modal */}
+      <UserPermissionsModal
+        isOpen={isPermissionsModalOpen}
+        onClose={() => setIsPermissionsModalOpen(false)}
+      />
     </div>
   );
 }
