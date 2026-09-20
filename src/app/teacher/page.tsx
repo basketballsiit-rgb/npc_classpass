@@ -260,42 +260,6 @@ export default function TeacherDirectKhorRorPage() {
     });
   }, [searchQuery]);
 
-  // Quick Preset Courses (Matching user's sample document!)
-  const presetCourses = [
-    {
-      code: "20000-1201",
-      name: "ภาษาอังกฤษเพื่อการสื่อสาร",
-    },
-    {
-      code: "30000-1201",
-      name: "ภาษาอังกฤษสำหรับงานอาชีพ",
-    },
-    {
-      code: "20000-1103",
-      name: "ภาษาไทยธุรกิจ",
-    },
-    {
-      code: "30000-1101",
-      name: "ภาษาไทยเพื่อการสื่อสารในงานอาชีพ",
-    },
-    {
-      code: "20105-2001",
-      name: "การติดตั้งไฟฟ้าในอาคาร",
-    },
-  ];
-
-  const handleSelectPresetCourse = (c: {
-    code: string;
-    name: string;
-  }) => {
-    setCourseCode(c.code);
-    setCourseName(c.name);
-    setNotification({
-      type: "info",
-      message: `เปลี่ยนเป็นรายวิชา ${c.code} ${c.name} เรียบร้อยแล้ว`,
-    });
-    setTimeout(() => setNotification(null), 3000);
-  };
 
   // Add student to active Khor-Ror list
   const handleAddStudent = (std: Student) => {
@@ -530,33 +494,6 @@ export default function TeacherDirectKhorRorPage() {
             </div>
           )}
 
-          {/* Quick Preset Buttons (From Sample Image!) */}
-          <div>
-            <span className="text-xs font-bold text-[#857E9E] mb-2 block">
-              เลือกรายวิชาที่สอนด่วน (ตามเอกสารตัวอย่าง):
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {presetCourses.map((c) => {
-                const isSelected =
-                  courseCode === c.code && courseName === c.name;
-                return (
-                  <button
-                    key={c.code}
-                    type="button"
-                    onClick={() => handleSelectPresetCourse(c)}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border ${
-                      isSelected
-                        ? "bg-[#8C78EA] text-white border-[#8C78EA] shadow-[0_4px_12px_rgba(140,120,234,0.35)]"
-                        : "bg-[#FAF7FE] text-[#2B244D] border-[#E8DEF8] hover:bg-[#F3EEFA]"
-                    }`}
-                  >
-                    <span className="font-mono mr-1.5">{c.code}</span>
-                    <span>{c.name}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
           {/* Course Inputs Grid with Autocomplete */}
           <div ref={courseSearchContainerRef} className="relative pt-2">
