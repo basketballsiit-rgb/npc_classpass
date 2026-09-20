@@ -25,8 +25,8 @@ import { getAssetPath } from "@/lib/utils";
 export default function LoginPage() {
   const router = useRouter();
   const [role, setRole] = useState<"TEACHER" | "ADMIN">("TEACHER");
-  const [email, setEmail] = useState("somsak.v@npc.ac.th");
-  const [password, setPassword] = useState("••••••••••••");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -45,18 +45,6 @@ export default function LoginPage() {
         router.push("/admin");
       }
     }, 600);
-  };
-
-  const handleQuickDemoTeacher = () => {
-    setRole("TEACHER");
-    setEmail("somsak.v@npc.ac.th");
-    setPassword("password123");
-  };
-
-  const handleQuickDemoAdmin = () => {
-    setRole("ADMIN");
-    setEmail("admin.eval@npc.ac.th");
-    setPassword("password123");
   };
 
   return (
@@ -168,10 +156,7 @@ export default function LoginPage() {
               <div className="inline-flex rounded-full bg-[#F3EEFA] p-1 border border-[#EAE3F5]">
                 <button
                   type="button"
-                  onClick={() => {
-                    setRole("TEACHER");
-                    setEmail("somsak.v@npc.ac.th");
-                  }}
+                  onClick={() => setRole("TEACHER")}
                   className={`px-3.5 py-1.5 text-xs font-black rounded-full transition-all cursor-pointer flex items-center gap-1.5 ${
                     role === "TEACHER"
                       ? "bg-[#8C78EA] text-white shadow-[0_4px_12px_rgba(140,120,234,0.35)]"
@@ -183,10 +168,7 @@ export default function LoginPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setRole("ADMIN");
-                    setEmail("admin.eval@npc.ac.th");
-                  }}
+                  onClick={() => setRole("ADMIN")}
                   className={`px-3.5 py-1.5 text-xs font-black rounded-full transition-all cursor-pointer flex items-center gap-1.5 ${
                     role === "ADMIN"
                       ? "bg-[#8C78EA] text-white shadow-[0_4px_12px_rgba(140,120,234,0.35)]"
@@ -333,48 +315,6 @@ export default function LoginPage() {
               </button>
             </form>
 
-            {/* Quick Demo Switcher Buttons */}
-            <div className="mt-6 pt-5 border-t border-[#F0EBF7]">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold text-[#857E9E] uppercase tracking-wider">
-                  ทดสอบระบบ (Demo Accounts):
-                </span>
-                <span className="text-[10px] text-[#A79FC2]">คลิกเพื่อสลับบทบาท</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={handleQuickDemoTeacher}
-                  className="p-2.5 rounded-2xl border border-[#E8DEF8] bg-[#FAF7FE] hover:bg-[#F3EEFA] text-left transition-all cursor-pointer"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-[#B5A4F8] to-[#8C78EA] text-white flex items-center justify-center text-xs">
-                      <GraduationCap className="h-3.5 w-3.5" />
-                    </div>
-                    <span className="text-xs font-black text-[#2B244D]">ครูผู้สอน</span>
-                  </div>
-                  <span className="text-[10px] text-[#857E9E] font-medium block mt-1 truncate">
-                    อ.สมศักดิ์ วิจิตรกุล
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleQuickDemoAdmin}
-                  className="p-2.5 rounded-2xl border border-[#E8DEF8] bg-[#FAF7FE] hover:bg-[#F3EEFA] text-left transition-all cursor-pointer"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-[#8FE0FC] to-[#5CB9F8] text-white flex items-center justify-center text-xs">
-                      <ShieldCheck className="h-3.5 w-3.5" />
-                    </div>
-                    <span className="text-xs font-black text-[#2B244D]">งานวัดผล</span>
-                  </div>
-                  <span className="text-[10px] text-[#857E9E] font-medium block mt-1 truncate">
-                    เจ้าหน้าที่งานวัดผลฯ
-                  </span>
-                </button>
-              </div>
-            </div>
           </div>
 
           {/* Footer */}
