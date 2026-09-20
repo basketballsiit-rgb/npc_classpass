@@ -208,7 +208,7 @@ export function UserPermissionsModal({ isOpen, onClose }: UserPermissionsModalPr
   });
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} className="max-w-4xl p-0 overflow-hidden rounded-[28px]">
+    <Modal isOpen={isOpen} onClose={onClose} maxWidth="4xl">
       {/* Modal Header */}
       <div className="p-6 bg-gradient-to-r from-[#9E8DF4] via-[#8D7BEB] to-[#7964E1] text-white flex items-center justify-between">
         <div className="flex items-center gap-3">
