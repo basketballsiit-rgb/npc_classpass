@@ -10,6 +10,8 @@ export interface ImportBatch {
   coursesCount: number;
   studentsCount: number;
   submissionIds: string[];
+  term?: number;
+  academicYear?: number;
 }
 
 export interface SubmissionsDataFile {
@@ -29,9 +31,19 @@ export function getSubmissionsData(): SubmissionsDataFile {
       const content = fs.readFileSync(STORAGE_FILE, "utf-8");
       const parsed = JSON.parse(content);
       if (Array.isArray(parsed.submissions)) {
+        const normalizedSubmissions = parsed.submissions.map((s: KhorRorSubmissionSummary) => ({
+          ...s,
+          term: typeof s.term === "number" ? s.term : 1,
+          academicYear: typeof s.academicYear === "number" ? s.academicYear : 2569,
+        }));
+        const normalizedBatches = (Array.isArray(parsed.batches) ? parsed.batches : []).map((b: ImportBatch) => ({
+          ...b,
+          term: typeof b.term === "number" ? b.term : 1,
+          academicYear: typeof b.academicYear === "number" ? b.academicYear : 2569,
+        }));
         return {
-          submissions: parsed.submissions,
-          batches: Array.isArray(parsed.batches) ? parsed.batches : [],
+          submissions: normalizedSubmissions,
+          batches: normalizedBatches,
           lastUpdated: parsed.lastUpdated || new Date().toISOString(),
         };
       }
@@ -115,10 +127,26 @@ export function deleteBatch(batchId: string): SubmissionsDataFile {
 }
 
 /**
- * ลบข้อมูลที่นำเข้าทั้งหมด
+ * ลบข้อมูลที่นำเข้าทั้งหมด (สามารถระบุเฉพาะภาคเรียน/ปีการศึกษาได้)
  */
-export function clearAllImports(): SubmissionsDataFile {
+export function clearAllImports(term?: number, academicYear?: number): SubmissionsDataFile {
   const current = getSubmissionsData();
+  if (term !== undefined && academicYear !== undefined) {
+    const targetBatches = current.batches.filter(
+      (b) => (b.term ?? 1) === term && (b.academicYear ?? 2569) === academicYear
+    );
+    const targetSubIds = new Set(targetBatches.flatMap((b) => b.submissionIds));
+    const nextSubmissions = current.submissions.filter((s) => {
+      if (targetSubIds.has(s.id)) return false;
+      if (s.id.startsWith("sub-excel-") && (s.term ?? 1) === term && (s.academicYear ?? 2569) === academicYear) {
+        return false;
+      }
+      return true;
+    });
+    const nextBatches = current.batches.filter((b) => !targetBatches.some((tb) => tb.id === b.id));
+    return saveSubmissionsData(nextSubmissions, nextBatches);
+  }
+
   const batchSubIds = current.batches.flatMap((b) => b.submissionIds);
   const nextSubmissions = current.submissions.filter(
     (s) => !batchSubIds.includes(s.id) && !s.id.startsWith("sub-excel-")
@@ -165,22 +193,51 @@ export function approveSubmission(subId: string): SubmissionsDataFile {
 }
 
 /**
- * เพิ่มรายการที่นำเข้าจาก Excel
+ * เพิ่มรายการที่นำเข้าจาก Excel (แยกตามรหัสวิชา, ภาคเรียน, และปีการศึกษา)
  */
 export function importSubmissions(
   newSubmissions: KhorRorSubmissionSummary[],
   newBatch: ImportBatch
 ): SubmissionsDataFile {
   const current = getSubmissionsData();
-  const incomingCodes = new Set(newSubmissions.map((s) => s.courseCode));
+  const incomingKeys = new Set(
+    newSubmissions.map((s) => `${s.courseCode}-${s.term ?? 1}-${s.academicYear ?? 2569}`)
+  );
   const filteredExisting = current.submissions.filter(
-    (s) => !incomingCodes.has(s.courseCode)
+    (s) => !incomingKeys.has(`${s.courseCode}-${s.term ?? 1}-${s.academicYear ?? 2569}`)
   );
 
   const nextSubmissions = [...newSubmissions, ...filteredExisting];
   const nextBatches = [newBatch, ...current.batches];
 
   return saveSubmissionsData(nextSubmissions, nextBatches);
+}
+
+/**
+ * เพิ่มหรืออัปเดตรายการที่ครูส่งมา (รองรับการระบุภาคเรียนและปีการศึกษา)
+ */
+export function addSubmission(
+  submission: KhorRorSubmissionSummary
+): SubmissionsDataFile {
+  const current = getSubmissionsData();
+  const subTerm = submission.term ?? 1;
+  const subYear = submission.academicYear ?? 2569;
+  const existingIdx = current.submissions.findIndex(
+    (s) =>
+      s.courseCode === submission.courseCode &&
+      (s.term ?? 1) === subTerm &&
+      (s.academicYear ?? 2569) === subYear
+  );
+
+  let nextSubmissions: KhorRorSubmissionSummary[];
+  if (existingIdx >= 0) {
+    nextSubmissions = [...current.submissions];
+    nextSubmissions[existingIdx] = submission;
+  } else {
+    nextSubmissions = [submission, ...current.submissions];
+  }
+
+  return saveSubmissionsData(nextSubmissions, current.batches);
 }
 
 /**

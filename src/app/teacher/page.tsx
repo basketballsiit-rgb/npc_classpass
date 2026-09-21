@@ -11,7 +11,7 @@ import {
   allCollegeStudents,
   mockTeacher,
 } from "@/data/mock-data";
-import { Student, Course, StudentAttendance, TeacherProfile } from "@/types";
+import { Student, Course, StudentAttendance, TeacherProfile, KhorRorSubmissionSummary } from "@/types";
 import { cleanThaiText } from "@/lib/thaiUtils";
 import { getAssetPath } from "@/lib/utils";
 import {
@@ -102,6 +102,18 @@ export default function TeacherDirectKhorRorPage() {
   const [currentTerm, setCurrentTerm] = useState<number>(1);
   const [currentAcademicYear, setCurrentAcademicYear] = useState<number>(2569);
   const [isTermModalOpen, setIsTermModalOpen] = useState(false);
+
+  // Load term and academic year preference from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedTerm = localStorage.getItem("npc_classpass_term");
+      if (savedTerm) setCurrentTerm(Number(savedTerm));
+      const savedYear = localStorage.getItem("npc_classpass_year");
+      if (savedYear) setCurrentAcademicYear(Number(savedYear));
+    } catch (e) {
+      console.warn("Could not load term/year from localStorage:", e);
+    }
+  }, []);
 
   // Imported multi-course blocks from Excel
   const [importedCourses, setImportedCourses] = useState<ParsedCourseBlock[]>([]);
@@ -303,16 +315,6 @@ export default function TeacherDirectKhorRorPage() {
     );
   };
 
-  // Submit to Admin
-  const handleSubmitToAdmin = () => {
-    if (khorRorList.length === 0) return;
-    setNotification({
-      type: "success",
-      message: `ส่งรายงานแจ้งเกรด ขร. วิชา ${courseCode} จำนวน ${khorRorList.length} คน ไปยังงานวัดผลและประเมินผลเรียบร้อยแล้ว`,
-    });
-    setTimeout(() => setNotification(null), 5000);
-  };
-
   // Convert Khor-Ror entries to StudentAttendance format for OfficialMemoModal
   const currentCourseObject: Course = {
     id: `course-${courseCode}`,
@@ -344,6 +346,51 @@ export default function TeacherDirectKhorRorPage() {
       remark: entry.remark,
     }));
   }, [khorRorList, currentCourseObject.id]);
+
+  // Submit to Admin
+  const handleSubmitToAdmin = async () => {
+    if (khorRorList.length === 0) return;
+
+    const subId = `sub-tch-${courseCode || "course"}-${Date.now()}`;
+    const newSubmission: KhorRorSubmissionSummary = {
+      id: subId,
+      memoNumber: `ศธ 0629.04/${Math.floor(100 + Math.random() * 899)}`,
+      courseId: currentCourseObject.id,
+      courseCode: courseCode || "วิชาที่เสนอ",
+      courseName: courseName || "วิชาที่เสนอ",
+      teacherName: teacherName,
+      teacherDepartment: teacher.department || "วิทยาลัยสารพัดช่างน่าน",
+      studentCount: khorRorList.length,
+      submittedAt: new Date().toLocaleDateString("th-TH", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }),
+      status: "PENDING",
+      students: modalStudents,
+      term: currentTerm,
+      academicYear: currentAcademicYear,
+    };
+
+    try {
+      await fetch(getAssetPath("/api/submissions"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "add_submission",
+          submission: newSubmission,
+        }),
+      });
+    } catch (e) {
+      console.warn("Failed to persist teacher submission:", e);
+    }
+
+    setNotification({
+      type: "success",
+      message: `ส่งรายงานแจ้งเกรด ขร. วิชา ${courseCode} (${khorRorList.length} คน) ภาคเรียนที่ ${currentTerm === 3 ? "ฤดูร้อน" : currentTerm}/${currentAcademicYear} ไปยังงานวัดผลเรียบร้อยแล้ว`,
+    });
+    setTimeout(() => setNotification(null), 5000);
+  };
 
   return (
     <div className="min-h-screen bg-[#F8F5FD]">
@@ -947,6 +994,10 @@ export default function TeacherDirectKhorRorPage() {
         onImportAllCourses={(data) => {
           setCurrentTerm(data.term);
           setCurrentAcademicYear(data.academicYear);
+          try {
+            localStorage.setItem("npc_classpass_term", String(data.term));
+            localStorage.setItem("npc_classpass_year", String(data.academicYear));
+          } catch (e) {}
           setImportedCourses(data.courses);
 
           if (data.courses.length > 0) {
@@ -991,6 +1042,10 @@ export default function TeacherDirectKhorRorPage() {
         onSave={(term, year) => {
           setCurrentTerm(term);
           setCurrentAcademicYear(year);
+          try {
+            localStorage.setItem("npc_classpass_term", String(term));
+            localStorage.setItem("npc_classpass_year", String(year));
+          } catch (e) {}
           setNotification({
             type: "success",
             message: `เปลี่ยนการตั้งค่าเป็น ภาคเรียนที่ ${term === 3 ? "ฤดูร้อน" : term} ปีการศึกษา ${year} เรียบร้อยแล้ว`,

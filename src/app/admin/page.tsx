@@ -63,6 +63,8 @@ export interface ImportBatch {
   coursesCount: number;
   studentsCount: number;
   submissionIds: string[];
+  term?: number;
+  academicYear?: number;
 }
 
 export default function AdminDashboardPage() {
@@ -115,14 +117,24 @@ export default function AdminDashboardPage() {
         if (localSubs !== null) {
           const parsed = JSON.parse(localSubs);
           if (Array.isArray(parsed)) {
-            setSubmissions(parsed);
+            const normalized = parsed.map((s: KhorRorSubmissionSummary) => ({
+              ...s,
+              term: typeof s.term === "number" ? s.term : 1,
+              academicYear: typeof s.academicYear === "number" ? s.academicYear : 2569,
+            }));
+            setSubmissions(normalized);
           }
         }
         const localBatches = localStorage.getItem("npc_classpass_batches");
         if (localBatches !== null) {
           const parsed = JSON.parse(localBatches);
           if (Array.isArray(parsed)) {
-            setImportBatches(parsed);
+            const normalized = parsed.map((b: ImportBatch) => ({
+              ...b,
+              term: typeof b.term === "number" ? b.term : 1,
+              academicYear: typeof b.academicYear === "number" ? b.academicYear : 2569,
+            }));
+            setImportBatches(normalized);
           }
         }
       } catch (err) {
@@ -151,6 +163,19 @@ export default function AdminDashboardPage() {
 
   const [currentTerm, setCurrentTerm] = useState<number>(1);
   const [currentAcademicYear, setCurrentAcademicYear] = useState<number>(2569);
+
+  // Load term and academic year preference from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedTerm = localStorage.getItem("npc_classpass_term");
+      if (savedTerm) setCurrentTerm(Number(savedTerm));
+      const savedYear = localStorage.getItem("npc_classpass_year");
+      if (savedYear) setCurrentAcademicYear(Number(savedYear));
+    } catch (e) {
+      console.warn("Could not load term/year from localStorage:", e);
+    }
+  }, []);
+
   const [isTermModalOpen, setIsTermModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"inbox" | "all_students">("inbox");
   const [selectedSubmission, setSelectedSubmission] =
@@ -163,17 +188,35 @@ export default function AdminDashboardPage() {
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [isStd02ModalOpen, setIsStd02ModalOpen] = useState(false);
 
-  // Statistics
-  const pendingCount = submissions.filter((s) => s.status === "PENDING").length;
-  const approvedCount = submissions.filter(
+  // Submissions filtered by active semester & academic year
+  const currentSubmissions = useMemo(() => {
+    return submissions.filter((s) => {
+      const sTerm = typeof s.term === "number" ? s.term : 1;
+      const sYear = typeof s.academicYear === "number" ? s.academicYear : 2569;
+      return sTerm === currentTerm && sYear === currentAcademicYear;
+    });
+  }, [submissions, currentTerm, currentAcademicYear]);
+
+  // Import batches filtered by active semester & academic year
+  const currentImportBatches = useMemo(() => {
+    return importBatches.filter((b) => {
+      const bTerm = typeof b.term === "number" ? b.term : 1;
+      const bYear = typeof b.academicYear === "number" ? b.academicYear : 2569;
+      return bTerm === currentTerm && bYear === currentAcademicYear;
+    });
+  }, [importBatches, currentTerm, currentAcademicYear]);
+
+  // Statistics (Filtered by current term & academic year)
+  const pendingCount = currentSubmissions.filter((s) => s.status === "PENDING").length;
+  const approvedCount = currentSubmissions.filter(
     (s) => s.status === "APPROVED"
   ).length;
-  const totalKhorRorStudents = submissions.reduce(
+  const totalKhorRorStudents = currentSubmissions.reduce(
     (acc, curr) => acc + curr.studentCount,
     0
   );
 
-  // Collect all Khor-Ror students across all submissions
+  // Collect all Khor-Ror students across current active submissions
   const allKhorRorStudents = useMemo(() => {
     const list: {
       attendance: StudentAttendance;
@@ -183,7 +226,7 @@ export default function AdminDashboardPage() {
       submissionStatus: string;
     }[] = [];
 
-    submissions.forEach((sub) => {
+    currentSubmissions.forEach((sub) => {
       sub.students.forEach((std) => {
         list.push({
           attendance: std,
@@ -196,7 +239,7 @@ export default function AdminDashboardPage() {
     });
 
     return list;
-  }, [submissions]);
+  }, [currentSubmissions]);
 
   // Dynamically extract all available departments from system & imported files
   const availableDepartments = useMemo(() => {
@@ -325,27 +368,45 @@ export default function AdminDashboardPage() {
     }).catch((err) => console.error("Failed to persist delete batch:", err));
   };
 
-  // Clear all imported data (purges all submissions created via import or starting with sub-excel-)
+  // Clear all imported data for the current active semester
   const handleClearAllImports = () => {
-    const batchSubIds = importBatches.flatMap((b) => b.submissionIds);
+    const targetBatches = currentImportBatches;
+    const targetBatchSubIds = new Set(targetBatches.flatMap((b) => b.submissionIds));
     setSubmissions((prev) => {
-      const updated = prev.filter((s) => !batchSubIds.includes(s.id) && !s.id.startsWith("sub-excel-"));
+      const updated = prev.filter((s) => {
+        if (targetBatchSubIds.has(s.id)) return false;
+        const sTerm = typeof s.term === "number" ? s.term : 1;
+        const sYear = typeof s.academicYear === "number" ? s.academicYear : 2569;
+        if (s.id.startsWith("sub-excel-") && sTerm === currentTerm && sYear === currentAcademicYear) {
+          return false;
+        }
+        return true;
+      });
       try {
         localStorage.setItem("npc_classpass_submissions", JSON.stringify(updated));
       } catch (e) {}
       return updated;
     });
-    setImportBatches([]);
-    try {
-      localStorage.setItem("npc_classpass_batches", JSON.stringify([]));
-    } catch (e) {}
-    setNotification("🗑️ ลบข้อมูลที่นำเข้าทั้งหมดออกจากระบบและฐานข้อมูลเรียบร้อยแล้ว คืนค่าสถิติสู่ปกติ");
+    setImportBatches((prev) => {
+      const updated = prev.filter((b) => !targetBatches.some((tb) => tb.id === b.id));
+      try {
+        localStorage.setItem("npc_classpass_batches", JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    setNotification(
+      `🗑️ ลบข้อมูลที่นำเข้าของภาคเรียนที่ ${currentTerm === 3 ? "ฤดูร้อน" : currentTerm}/${currentAcademicYear} ออกจากระบบเรียบร้อยแล้ว`
+    );
     setTimeout(() => setNotification(null), 6000);
 
     fetch(getAssetPath("/api/submissions"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "clear_all_imports" }),
+      body: JSON.stringify({
+        action: "clear_all_imports",
+        term: currentTerm,
+        academicYear: currentAcademicYear,
+      }),
     }).catch((err) => console.error("Failed to persist clear all imports:", err));
   };
 
@@ -618,7 +679,7 @@ export default function AdminDashboardPage() {
             </div>
             <div className="mt-4 flex items-baseline gap-2">
               <span className="text-3xl font-black text-[#2B244D]">
-                {submissions.length}
+                {currentSubmissions.length}
               </span>
               <span className="text-xs text-[#857E9E] font-bold">ฉบับ</span>
             </div>
@@ -694,7 +755,7 @@ export default function AdminDashboardPage() {
         {/* ============================================================== */}
         {/* IMPORTED FILES MANAGEMENT & ROLLBACK (User Requested Feature)  */}
         {/* ============================================================== */}
-        {(importBatches.length > 0 || submissions.some((s) => s.id.startsWith("sub-excel-"))) && (
+        {(currentImportBatches.length > 0 || currentSubmissions.some((s) => s.id.startsWith("sub-excel-"))) && (
           <div className="clay-card p-5 border border-purple-200 bg-gradient-to-r from-[#FAF8FE] via-white to-[#F5EFFF] space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#EFE8F8] pb-3">
               <div className="flex items-center gap-2.5">
@@ -703,7 +764,7 @@ export default function AdminDashboardPage() {
                 </div>
                 <div>
                   <h3 className="font-black text-sm text-[#2B244D]">
-                    จัดการชุดข้อมูลที่นำเข้าล่าสุด (Imported File Management &amp; Rollback)
+                    จัดการชุดข้อมูลที่นำเข้า (ภาคเรียนที่ {currentTerm === 3 ? "ฤดูร้อน" : currentTerm}/{currentAcademicYear})
                   </h3>
                   <p className="text-xs text-[#857E9E]">
                     หากนำเข้าผิดพลาดหรือมีข้อมูลซ้ำซ้อน สามารถกดลบไฟล์ข้อมูลชุดนี้ออกจากฐานข้อมูลทั้งหมดได้ทันที
@@ -716,22 +777,21 @@ export default function AdminDashboardPage() {
                 onClick={() =>
                   setDeleteTarget({
                     type: "all_imported",
-                    title: "ยืนยันการลบข้อมูลที่นำเข้าทั้งหมดออกจากระบบ",
-                    message:
-                      "ระบบจะทำการล้างและลบรายวิชาทั้งหมดที่นำเข้ามาจากไฟล์ Excel ออกจากฐานข้อมูลงานวัดผล (ข้อมูลระบบเดิมจะไม่ได้รับผลกระทบ)",
+                    title: `ยืนยันการลบข้อมูลที่นำเข้าทั้งหมดในภาคเรียนที่ ${currentTerm === 3 ? "ฤดูร้อน" : currentTerm}/${currentAcademicYear}`,
+                    message: `ระบบจะทำการล้างและลบรายวิชาทั้งหมดที่นำเข้ามาในภาคเรียนที่ ${currentTerm === 3 ? "ฤดูร้อน" : currentTerm}/${currentAcademicYear} ออกจากฐานข้อมูลงานวัดผล (ข้อมูลภาคเรียนอื่นจะไม่ได้รับผลกระทบ)`,
                   })
                 }
                 className="px-3.5 py-1.5 rounded-full border border-[#FFCCD5] bg-[#FFF0F3] hover:bg-[#FFE5EB] text-[#FF4D71] text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                <span>ลบข้อมูลที่นำเข้าทั้งหมด (Clear All Imports)</span>
+                <span>ลบข้อมูลที่นำเข้าทั้งหมดในภาคเรียนนี้</span>
               </button>
             </div>
 
             {/* List of Batches */}
             <div className="space-y-2">
-              {importBatches.length > 0 ? (
-                importBatches.map((batch) => (
+              {currentImportBatches.length > 0 ? (
+                currentImportBatches.map((batch) => (
                   <div
                     key={batch.id}
                     className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-2xl bg-white border border-[#EAE3F5] shadow-xs"
@@ -771,15 +831,15 @@ export default function AdminDashboardPage() {
                 /* Fallback if imported items exist without batch metadata */
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-2xl bg-white border border-[#EAE3F5]">
                   <span className="text-xs font-bold text-[#2B244D]">
-                    พบข้อมูลนำเข้าจากไฟล์ Excel ในระบบ ({submissions.filter((s) => s.id.startsWith("sub-excel-")).length} รายวิชา)
+                    พบข้อมูลนำเข้าจากไฟล์ Excel ในระบบ ({currentSubmissions.filter((s) => s.id.startsWith("sub-excel-")).length} รายวิชา)
                   </span>
                   <button
                     type="button"
                     onClick={() =>
                       setDeleteTarget({
                         type: "all_imported",
-                        title: "ยืนยันการลบข้อมูลที่นำเข้าจาก Excel ทั้งหมด",
-                        message: "ระบบจะลบรายวิชาที่นำเข้าจากไฟล์ Excel ออกจากฐานข้อมูลทั้งหมดทันที",
+                        title: `ยืนยันการลบข้อมูลที่นำเข้าจาก Excel ในภาคเรียนที่ ${currentTerm === 3 ? "ฤดูร้อน" : currentTerm}/${currentAcademicYear}`,
+                        message: `ระบบจะลบรายวิชาที่นำเข้าจากไฟล์ Excel ในภาคเรียนที่ ${currentTerm === 3 ? "ฤดูร้อน" : currentTerm}/${currentAcademicYear} ออกจากฐานข้อมูลทั้งหมดทันที`,
                       })
                     }
                     className="px-3 py-1.5 rounded-full border border-[#FFCCD5] text-[#FF4D71] hover:bg-[#FFF0F3] text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 self-end sm:self-auto"
@@ -806,7 +866,7 @@ export default function AdminDashboardPage() {
             }`}
           >
             <FileText className="h-3.5 w-3.5" />
-            <span>กล่องบันทึกข้อความที่ครูส่งมา ({submissions.length})</span>
+            <span>กล่องบันทึกข้อความที่ครูส่งมา ({currentSubmissions.length})</span>
             {pendingCount > 0 && (
               <span className="bg-[#FFA0B2] text-white rounded-full text-[10px] px-2 py-0.2 font-black">
                 {pendingCount}
@@ -830,47 +890,80 @@ export default function AdminDashboardPage() {
         {/* TAB 1: Submissions Inbox */}
         {activeTab === "inbox" && (
           <div className="space-y-4">
-            {submissions.length === 0 ? (
+            {currentSubmissions.length === 0 ? (
               <div className="clay-card p-12 text-center space-y-4">
                 <div className="squircle-purple h-16 w-16 mx-auto flex items-center justify-center">
-                  <CheckCircle2 className="h-8 w-8 text-white" />
+                  {submissions.length > 0 ? (
+                    <Calendar className="h-8 w-8 text-white" />
+                  ) : (
+                    <CheckCircle2 className="h-8 w-8 text-white" />
+                  )}
                 </div>
                 <div className="space-y-1">
                   <h3 className="text-base font-black text-[#2B244D]">
-                    ยังไม่มีรายการยื่นขอประกาศผล ขร. ในระบบ
+                    {submissions.length > 0
+                      ? `ยังไม่มีรายการยื่นขอประกาศผล ขร. ในภาคเรียนที่ ${currentTerm === 3 ? "ฤดูร้อน" : currentTerm}/${currentAcademicYear}`
+                      : "ยังไม่มีรายการยื่นขอประกาศผล ขร. ในระบบ"}
                   </h3>
                   <p className="text-xs text-[#857E9E] max-w-md mx-auto">
-                    คุณได้ลบรายการทั้งหมดออกจากฐานข้อมูลเรียบร้อยแล้ว หากต้องการนำเข้าข้อมูลใหม่ สามารถใช้เมนู &ldquo;นำเข้าข้อมูล ศธ.02 (API / SQL)&rdquo; หรือกดคืนค่าข้อมูลตัวอย่างเริ่มต้นได้
+                    {submissions.length > 0
+                      ? `ตรวจพบข้อมูล ขร. ในภาคเรียนอื่นรวม ${submissions.length} รายการ แต่ยังไม่มีข้อมูลในภาคเรียนที่เลือก ท่านสามารถสลับไปดูภาคเรียนที่มีข้อมูล หรือนำเข้าไฟล์สำหรับภาคเรียนนี้ได้`
+                      : "คุณได้ลบรายการทั้งหมดออกจากฐานข้อมูลเรียบร้อยแล้ว หากต้องการนำเข้าข้อมูลใหม่ สามารถใช้เมนู \"นำเข้าข้อมูล ศธ.02 (API / SQL)\" หรือกดคืนค่าข้อมูลตัวอย่างเริ่มต้นได้"}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                  {submissions.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const sample = submissions[0];
+                        const targetTerm = sample?.term ?? 1;
+                        const targetYear = sample?.academicYear ?? 2569;
+                        setCurrentTerm(targetTerm);
+                        setCurrentAcademicYear(targetYear);
+                        try {
+                          localStorage.setItem("npc_classpass_term", String(targetTerm));
+                          localStorage.setItem("npc_classpass_year", String(targetYear));
+                        } catch (e) {}
+                      }}
+                      className="btn-clay-purple px-5 py-2 text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs"
+                    >
+                      <Calendar className="h-4 w-4" />
+                      <span>
+                        สลับไปดูภาคเรียนที่มีข้อมูล ({submissions[0]?.term ?? 1}/{submissions[0]?.academicYear ?? 2569})
+                      </span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setIsStd02ModalOpen(true)}
-                    className="btn-clay-purple px-5 py-2 text-xs font-bold flex items-center gap-2"
+                    className="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-50/80 px-4 py-2 text-xs font-bold text-emerald-800 shadow-xs hover:bg-emerald-100 transition-all cursor-pointer"
                   >
-                    <Database className="h-4 w-4" />
-                    <span>นำเข้าข้อมูล (Excel / SQL)</span>
+                    <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                    <span>นำเข้าไฟล์ประกาศ Excel (.xlsx)</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setDeleteTarget({
-                        type: "reset_mock",
-                        title: "ยืนยันการคืนค่าข้อมูลตัวอย่าง",
-                        message: "คุณต้องการคืนค่าข้อมูลรายวิชาตัวอย่าง 3 รายการเดิม (ไฟฟ้าในอาคาร, ภาษาไทย, อิเล็กทรอนิกส์) เข้าสู่ระบบหรือไม่?",
-                      })
-                    }
-                    className="px-4 py-2 rounded-full border border-[#D8CCED] bg-white text-[#7A63E5] hover:bg-[#F3EEFA] text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
-                  >
-                    <RefreshCw className="h-3.5 w-3.5" />
-                    <span>คืนค่าข้อมูลตัวอย่างเริ่มต้น</span>
-                  </button>
+                  {submissions.length === 0 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDeleteTarget({
+                          type: "reset_mock",
+                          title: "ยืนยันการคืนค่าข้อมูลตัวอย่าง",
+                          message:
+                            "คุณต้องการคืนค่าข้อมูลรายวิชาตัวอย่าง 3 รายการเดิม (ไฟฟ้าในอาคาร, ภาษาไทย, อิเล็กทรอนิกส์) เข้าสู่ระบบหรือไม่?",
+                        })
+                      }
+                      className="px-4 py-2 rounded-full border border-[#D8CCED] bg-white text-[#7A63E5] hover:bg-[#F3EEFA] text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      <span>คืนค่าข้อมูลตัวอย่างเริ่มต้น</span>
+                    </button>
+                  )}
                 </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {submissions.map((sub) => {
+                {currentSubmissions.map((sub) => {
                   const isPending = sub.status === "PENDING";
                   const isExcelImported = sub.id.startsWith("sub-excel-");
                   return (
@@ -1382,6 +1475,10 @@ export default function AdminDashboardPage() {
         onImportAllCourses={(data) => {
           setCurrentTerm(data.term);
           setCurrentAcademicYear(data.academicYear);
+          try {
+            localStorage.setItem("npc_classpass_term", String(data.term));
+            localStorage.setItem("npc_classpass_year", String(data.academicYear));
+          } catch (e) {}
 
           const newBatchId = `batch-${Date.now()}`;
           const newSubmissionIds: string[] = [];
@@ -1427,18 +1524,26 @@ export default function AdminDashboardPage() {
               submittedAt: "19 ก.ย. 2567",
               status: "APPROVED",
               students: stdAttendances,
+              term: data.term || currentTerm,
+              academicYear: data.academicYear || currentAcademicYear,
             };
           });
 
-          // Check for duplicate course codes to prevent accidental inflation
-          const incomingCodes = new Set(data.courses.map((c) => c.courseCode));
-          const hasDuplicates = submissions.some((s) => incomingCodes.has(s.courseCode));
+          // Check for duplicate course codes in the same term to prevent accidental inflation
+          const incomingKeys = new Set(
+            data.courses.map((c) => `${c.courseCode}-${data.term}-${data.academicYear}`)
+          );
+          const hasDuplicates = submissions.some((s) =>
+            incomingKeys.has(`${s.courseCode}-${s.term ?? 1}-${s.academicYear ?? 2569}`)
+          );
 
           let nextSubmissions: KhorRorSubmissionSummary[] = [];
           if (hasDuplicates) {
             nextSubmissions = [
               ...newSubmissions,
-              ...submissions.filter((s) => !incomingCodes.has(s.courseCode)),
+              ...submissions.filter(
+                (s) => !incomingKeys.has(`${s.courseCode}-${s.term ?? 1}-${s.academicYear ?? 2569}`)
+              ),
             ];
           } else {
             nextSubmissions = [...newSubmissions, ...submissions];
@@ -1457,6 +1562,8 @@ export default function AdminDashboardPage() {
             coursesCount: data.courses.length,
             studentsCount: data.allStudents.length,
             submissionIds: newSubmissionIds,
+            term: data.term || currentTerm,
+            academicYear: data.academicYear || currentAcademicYear,
           };
           const nextBatches = [newBatch, ...importBatches];
           setImportBatches(nextBatches);
@@ -1477,7 +1584,7 @@ export default function AdminDashboardPage() {
 
           setNotification(
             hasDuplicates
-              ? `🔄 อัปเดตข้อมูลไฟล์ "${data.fileName || 'Excel'}" สำเร็จ (ตรวจพบรายวิชาเดิม จึงทำการแทนที่ข้อมูลล่าสุด ${data.courses.length} รายวิชา / รวม ${data.allStudents.length} คน เพื่อป้องกันข้อมูลซ้ำซ้อน)`
+              ? `🔄 อัปเดตข้อมูลไฟล์ "${data.fileName || 'Excel'}" สำเร็จ (ตรวจพบรายวิชาเดิมในภาคเรียนนี้ จึงทำการแทนที่ข้อมูลล่าสุด ${data.courses.length} รายวิชา / รวม ${data.allStudents.length} คน เพื่อป้องกันข้อมูลซ้ำซ้อน)`
               : `🎉 นำเข้าข้อมูลประกาศผล ขร. สำเร็จครบทั้ง ${data.courses.length} รายวิชา (รวม ${data.allStudents.length} คน) ภาคเรียนที่ ${data.term}/${data.academicYear} เข้าสู่ระบบงานวัดผลเรียบร้อยแล้ว`
           );
           setTimeout(() => setNotification(null), 8000);
@@ -1493,6 +1600,10 @@ export default function AdminDashboardPage() {
         onSave={(term, year) => {
           setCurrentTerm(term);
           setCurrentAcademicYear(year);
+          try {
+            localStorage.setItem("npc_classpass_term", String(term));
+            localStorage.setItem("npc_classpass_year", String(year));
+          } catch (e) {}
           setNotification(
             `เปลี่ยนการตั้งค่าเป็น ภาคเรียนที่ ${term === 3 ? "ฤดูร้อน" : term} ปีการศึกษา ${year} เรียบร้อยแล้ว`
           );

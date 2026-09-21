@@ -8,6 +8,7 @@ import {
   deleteStudentFromSubmission,
   approveSubmission,
   importSubmissions,
+  addSubmission,
   resetToMockData,
 } from "@/lib/submissionStorage";
 
@@ -44,7 +45,10 @@ export async function POST(req: NextRequest) {
         break;
 
       case "clear_all_imports":
-        result = clearAllImports();
+        result = clearAllImports(
+          typeof body.term === "number" ? body.term : undefined,
+          typeof body.academicYear === "number" ? body.academicYear : undefined
+        );
         break;
 
       case "delete_student":
@@ -66,6 +70,13 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: "Missing submissions or batch" }, { status: 400 });
         }
         result = importSubmissions(body.submissions, body.batch);
+        break;
+
+      case "add_submission":
+        if (!body.submission) {
+          return NextResponse.json({ error: "Missing submission" }, { status: 400 });
+        }
+        result = addSubmission(body.submission);
         break;
 
       case "reset_mock":

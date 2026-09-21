@@ -86,4 +86,6 @@ export interface KhorRorSubmissionSummary {
   submittedAt: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   students: StudentAttendance[];
+  term?: number;
+  academicYear?: number;
 }
